@@ -1,6 +1,7 @@
 package store
 
 import (
+	"sort"
 	"strings"
 	"sync"
 
@@ -8,7 +9,7 @@ import (
 )
 
 // MemoryStore is an in-memory implementation of the Store interface.
-// All Get/List methods return copies to prevent external mutations.
+// All methods use deep copies to prevent external mutations.
 type MemoryStore struct {
 	mu        sync.RWMutex
 	workers   map[string]*protocol.Worker
@@ -32,8 +33,7 @@ func NewMemoryStore() *MemoryStore {
 func (s *MemoryStore) AddWorker(w *protocol.Worker) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	copy := *w
-	s.workers[w.ID] = &copy
+	s.workers[w.ID] = protocol.DeepCopyWorker(w)
 	return nil
 }
 
@@ -44,8 +44,7 @@ func (s *MemoryStore) GetWorker(id string) (*protocol.Worker, error) {
 	if !ok {
 		return nil, ErrNotFound
 	}
-	copy := *w
-	return &copy, nil
+	return protocol.DeepCopyWorker(w), nil
 }
 
 func (s *MemoryStore) UpdateWorker(w *protocol.Worker) error {
@@ -54,8 +53,7 @@ func (s *MemoryStore) UpdateWorker(w *protocol.Worker) error {
 	if _, ok := s.workers[w.ID]; !ok {
 		return ErrNotFound
 	}
-	copy := *w
-	s.workers[w.ID] = &copy
+	s.workers[w.ID] = protocol.DeepCopyWorker(w)
 	return nil
 }
 
@@ -74,9 +72,9 @@ func (s *MemoryStore) ListWorkers() []*protocol.Worker {
 	defer s.mu.RUnlock()
 	result := make([]*protocol.Worker, 0, len(s.workers))
 	for _, w := range s.workers {
-		copy := *w
-		result = append(result, &copy)
+		result = append(result, protocol.DeepCopyWorker(w))
 	}
+	sort.Slice(result, func(i, j int) bool { return result[i].ID < result[j].ID })
 	return result
 }
 
@@ -90,8 +88,7 @@ func (s *MemoryStore) FindWorkersByCapability(capability string) []*protocol.Wor
 		}
 		for _, cap := range w.Capabilities {
 			if cap.Name == capability {
-				copy := *w
-				result = append(result, &copy)
+				result = append(result, protocol.DeepCopyWorker(w))
 				break
 			}
 		}
@@ -102,8 +99,7 @@ func (s *MemoryStore) FindWorkersByCapability(capability string) []*protocol.Wor
 func (s *MemoryStore) AddTask(t *protocol.Task) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	copy := *t
-	s.tasks[t.ID] = &copy
+	s.tasks[t.ID] = protocol.DeepCopyTask(t)
 	return nil
 }
 
@@ -114,8 +110,7 @@ func (s *MemoryStore) GetTask(id string) (*protocol.Task, error) {
 	if !ok {
 		return nil, ErrNotFound
 	}
-	copy := *t
-	return &copy, nil
+	return protocol.DeepCopyTask(t), nil
 }
 
 func (s *MemoryStore) UpdateTask(t *protocol.Task) error {
@@ -124,8 +119,7 @@ func (s *MemoryStore) UpdateTask(t *protocol.Task) error {
 	if _, ok := s.tasks[t.ID]; !ok {
 		return ErrNotFound
 	}
-	copy := *t
-	s.tasks[t.ID] = &copy
+	s.tasks[t.ID] = protocol.DeepCopyTask(t)
 	return nil
 }
 
@@ -134,17 +128,16 @@ func (s *MemoryStore) ListTasks() []*protocol.Task {
 	defer s.mu.RUnlock()
 	result := make([]*protocol.Task, 0, len(s.tasks))
 	for _, t := range s.tasks {
-		copy := *t
-		result = append(result, &copy)
+		result = append(result, protocol.DeepCopyTask(t))
 	}
+	sort.Slice(result, func(i, j int) bool { return result[i].ID < result[j].ID })
 	return result
 }
 
 func (s *MemoryStore) AddWorkflow(w *protocol.Workflow) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	copy := *w
-	s.workflows[w.ID] = &copy
+	s.workflows[w.ID] = protocol.DeepCopyWorkflow(w)
 	return nil
 }
 
@@ -155,8 +148,7 @@ func (s *MemoryStore) GetWorkflow(id string) (*protocol.Workflow, error) {
 	if !ok {
 		return nil, ErrNotFound
 	}
-	copy := *w
-	return &copy, nil
+	return protocol.DeepCopyWorkflow(w), nil
 }
 
 func (s *MemoryStore) UpdateWorkflow(w *protocol.Workflow) error {
@@ -165,8 +157,7 @@ func (s *MemoryStore) UpdateWorkflow(w *protocol.Workflow) error {
 	if _, ok := s.workflows[w.ID]; !ok {
 		return ErrNotFound
 	}
-	copy := *w
-	s.workflows[w.ID] = &copy
+	s.workflows[w.ID] = protocol.DeepCopyWorkflow(w)
 	return nil
 }
 
@@ -175,17 +166,16 @@ func (s *MemoryStore) ListWorkflows() []*protocol.Workflow {
 	defer s.mu.RUnlock()
 	result := make([]*protocol.Workflow, 0, len(s.workflows))
 	for _, w := range s.workflows {
-		copy := *w
-		result = append(result, &copy)
+		result = append(result, protocol.DeepCopyWorkflow(w))
 	}
+	sort.Slice(result, func(i, j int) bool { return result[i].ID < result[j].ID })
 	return result
 }
 
 func (s *MemoryStore) AddTeam(t *protocol.Team) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	copy := *t
-	s.teams[t.ID] = &copy
+	s.teams[t.ID] = protocol.DeepCopyTeam(t)
 	return nil
 }
 
@@ -196,8 +186,7 @@ func (s *MemoryStore) GetTeam(id string) (*protocol.Team, error) {
 	if !ok {
 		return nil, ErrNotFound
 	}
-	copy := *t
-	return &copy, nil
+	return protocol.DeepCopyTeam(t), nil
 }
 
 func (s *MemoryStore) UpdateTeam(t *protocol.Team) error {
@@ -206,8 +195,7 @@ func (s *MemoryStore) UpdateTeam(t *protocol.Team) error {
 	if _, ok := s.teams[t.ID]; !ok {
 		return ErrNotFound
 	}
-	copy := *t
-	s.teams[t.ID] = &copy
+	s.teams[t.ID] = protocol.DeepCopyTeam(t)
 	return nil
 }
 
@@ -226,17 +214,16 @@ func (s *MemoryStore) ListTeams() []*protocol.Team {
 	defer s.mu.RUnlock()
 	result := make([]*protocol.Team, 0, len(s.teams))
 	for _, t := range s.teams {
-		copy := *t
-		result = append(result, &copy)
+		result = append(result, protocol.DeepCopyTeam(t))
 	}
+	sort.Slice(result, func(i, j int) bool { return result[i].ID < result[j].ID })
 	return result
 }
 
 func (s *MemoryStore) AddKnowledge(k *protocol.KnowledgeEntry) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	copy := *k
-	s.knowledge[k.ID] = &copy
+	s.knowledge[k.ID] = protocol.DeepCopyKnowledge(k)
 	return nil
 }
 
@@ -247,8 +234,7 @@ func (s *MemoryStore) GetKnowledge(id string) (*protocol.KnowledgeEntry, error) 
 	if !ok {
 		return nil, ErrNotFound
 	}
-	copy := *k
-	return &copy, nil
+	return protocol.DeepCopyKnowledge(k), nil
 }
 
 func (s *MemoryStore) UpdateKnowledge(k *protocol.KnowledgeEntry) error {
@@ -257,8 +243,7 @@ func (s *MemoryStore) UpdateKnowledge(k *protocol.KnowledgeEntry) error {
 	if _, ok := s.knowledge[k.ID]; !ok {
 		return ErrNotFound
 	}
-	copy := *k
-	s.knowledge[k.ID] = &copy
+	s.knowledge[k.ID] = protocol.DeepCopyKnowledge(k)
 	return nil
 }
 
@@ -277,9 +262,9 @@ func (s *MemoryStore) ListKnowledge() []*protocol.KnowledgeEntry {
 	defer s.mu.RUnlock()
 	result := make([]*protocol.KnowledgeEntry, 0, len(s.knowledge))
 	for _, k := range s.knowledge {
-		copy := *k
-		result = append(result, &copy)
+		result = append(result, protocol.DeepCopyKnowledge(k))
 	}
+	sort.Slice(result, func(i, j int) bool { return result[i].ID < result[j].ID })
 	return result
 }
 
@@ -289,12 +274,10 @@ func (s *MemoryStore) SearchKnowledge(query string) []*protocol.KnowledgeEntry {
 	var result []*protocol.KnowledgeEntry
 	queryLower := strings.ToLower(query)
 	for _, k := range s.knowledge {
-		// Check if query matches title, content, or any tag
 		if strings.Contains(strings.ToLower(k.Title), queryLower) ||
 			strings.Contains(strings.ToLower(k.Content), queryLower) ||
 			containsTag(k.Tags, queryLower) {
-			copy := *k
-			result = append(result, &copy)
+			result = append(result, protocol.DeepCopyKnowledge(k))
 		}
 	}
 	return result

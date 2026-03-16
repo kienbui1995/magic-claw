@@ -7,16 +7,26 @@ import (
 	"github.com/kienbui1995/magic/core/internal/protocol"
 )
 
+// HeartbeatTimeout is the duration after which a worker is marked offline.
 const HeartbeatTimeout = 60 * time.Second
 
-func (r *Registry) StartHealthCheck(interval time.Duration) {
+// StartHealthCheck runs a background goroutine that marks workers offline
+// if no heartbeat is received. Returns a stop function to cancel it.
+func (r *Registry) StartHealthCheck(interval time.Duration) func() {
+	stop := make(chan struct{})
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
-		for range ticker.C {
-			r.checkHealth()
+		for {
+			select {
+			case <-ticker.C:
+				r.checkHealth()
+			case <-stop:
+				return
+			}
 		}
 	}()
+	return func() { close(stop) }
 }
 
 func (r *Registry) checkHealth() {

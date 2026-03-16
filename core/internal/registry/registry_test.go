@@ -93,6 +93,38 @@ func TestRegistry_Deregister(t *testing.T) {
 	}
 }
 
+func TestRegistry_HeartbeatCannotOverridePaused(t *testing.T) {
+	s := store.NewMemoryStore()
+	bus := events.NewBus()
+	reg := registry.New(s, bus)
+
+	payload := protocol.RegisterPayload{
+		Name:     "TestBot",
+		Endpoint: protocol.Endpoint{Type: "http", URL: "http://localhost:9000"},
+	}
+	worker, _ := reg.Register(payload)
+
+	// Simulate cost controller pausing the worker
+	w, _ := s.GetWorker(worker.ID)
+	w.Status = protocol.StatusPaused
+	s.UpdateWorker(w)
+
+	// Heartbeat tries to set status back to active
+	err := reg.Heartbeat(protocol.HeartbeatPayload{
+		WorkerID:    worker.ID,
+		CurrentLoad: 0,
+		Status:      protocol.StatusActive,
+	})
+	if err != nil {
+		t.Fatalf("Heartbeat: %v", err)
+	}
+
+	got, _ := s.GetWorker(worker.ID)
+	if got.Status != protocol.StatusPaused {
+		t.Errorf("Status: got %q, want paused (heartbeat should not override)", got.Status)
+	}
+}
+
 func TestRegistry_FindByCapability(t *testing.T) {
 	s := store.NewMemoryStore()
 	bus := events.NewBus()

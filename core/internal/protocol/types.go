@@ -189,6 +189,66 @@ type Workflow struct {
 	DoneAt    *time.Time     `json:"done_at,omitempty"`
 }
 
+// DeepCopyWorker returns a deep copy of a Worker, including slices and maps.
+func DeepCopyWorker(w *Worker) *Worker {
+	cp := *w
+	if w.Capabilities != nil {
+		cp.Capabilities = make([]Capability, len(w.Capabilities))
+		copy(cp.Capabilities, w.Capabilities)
+	}
+	if w.Metadata != nil {
+		cp.Metadata = make(map[string]any, len(w.Metadata))
+		for k, v := range w.Metadata {
+			cp.Metadata[k] = v
+		}
+	}
+	return &cp
+}
+
+// DeepCopyTask returns a deep copy of a Task.
+func DeepCopyTask(t *Task) *Task {
+	cp := *t
+	if t.Input != nil {
+		cp.Input = make(json.RawMessage, len(t.Input))
+		copy(cp.Input, t.Input)
+	}
+	if t.Output != nil {
+		cp.Output = make(json.RawMessage, len(t.Output))
+		copy(cp.Output, t.Output)
+	}
+	return &cp
+}
+
+// DeepCopyWorkflow returns a deep copy of a Workflow, including steps.
+func DeepCopyWorkflow(wf *Workflow) *Workflow {
+	cp := *wf
+	if wf.Steps != nil {
+		cp.Steps = make([]WorkflowStep, len(wf.Steps))
+		copy(cp.Steps, wf.Steps)
+	}
+	return &cp
+}
+
+// DeepCopyTeam returns a deep copy of a Team.
+func DeepCopyTeam(t *Team) *Team {
+	cp := *t
+	if t.Workers != nil {
+		cp.Workers = make([]string, len(t.Workers))
+		copy(cp.Workers, t.Workers)
+	}
+	return &cp
+}
+
+// DeepCopyKnowledge returns a deep copy of a KnowledgeEntry.
+func DeepCopyKnowledge(k *KnowledgeEntry) *KnowledgeEntry {
+	cp := *k
+	if k.Tags != nil {
+		cp.Tags = make([]string, len(k.Tags))
+		copy(cp.Tags, k.Tags)
+	}
+	return &cp
+}
+
 type KnowledgeEntry struct {
 	ID        string    `json:"id"`
 	Title     string    `json:"title"`

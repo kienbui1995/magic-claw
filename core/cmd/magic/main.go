@@ -53,7 +53,7 @@ func runServer() {
 	rt := router.New(reg, s, bus)
 	mon := monitor.New(bus, os.Stdout)
 	mon.Start()
-	reg.StartHealthCheck(30_000_000_000)
+	stopHealthCheck := reg.StartHealthCheck(30_000_000_000)
 
 	// Tier 2
 	cc := costctrl.New(s, bus)
@@ -119,6 +119,8 @@ func runServer() {
 
 	<-done
 	fmt.Println("\nShutting down gracefully...")
+
+	stopHealthCheck()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
