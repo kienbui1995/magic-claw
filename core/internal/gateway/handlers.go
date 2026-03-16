@@ -132,6 +132,12 @@ func (g *Gateway) handleSubmitTask(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, task)
 }
 
+func (g *Gateway) handleListTasks(w http.ResponseWriter, r *http.Request) {
+	limit, offset := getPagination(r)
+	tasks := g.deps.Store.ListTasks()
+	writeJSON(w, http.StatusOK, paginate(tasks, limit, offset))
+}
+
 func (g *Gateway) handleGetTask(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	task, err := g.deps.Store.GetTask(id)
