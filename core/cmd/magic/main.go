@@ -58,7 +58,7 @@ func runServer() {
 	// Tier 2
 	cc := costctrl.New(s, bus)
 	ev := evaluator.New(bus)
-	disp := dispatcher.New(s, bus, cc)
+	disp := dispatcher.New(s, bus, cc, ev)
 	orch := orchestrator.New(s, rt, bus, disp)
 	mgr := orgmgr.New(s, bus)
 	kb := knowledge.New(s, bus)
