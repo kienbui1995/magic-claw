@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MagiC — Spec Review</title>
+<style>
+  :root {
+    --bg: #0a0a0f; --surface: #12121a; --surface-2: #1a1a2e; --border: #2a2a3e;
+    --accent: #6c5ce7; --accent-light: #a29bfe; --green: #00b894; --yellow: #fdcb6e;
+    --red: #e17055; --blue: #74b9ff; --text: #e0e0e8; --text-dim: #8888a0; --text-bright: #fff;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7;}
+
+  .hero{background:linear-gradient(135deg,#0f3460 0%,#16213e 50%,#1a1a2e 100%);padding:60px 40px;text-align:center;border-bottom:1px solid var(--border);position:relative;}
+  .hero h1{font-size:2.5rem;font-weight:800;color:var(--text-bright);letter-spacing:-1px;}
+  .hero h1 span{color:var(--accent-light);}
+  .hero .sub{font-size:1rem;color:var(--text-dim);margin-top:8px;}
+  .hero .tag{display:inline-block;background:var(--accent);color:#fff;padding:2px 10px;border-radius:10px;font-size:0.7rem;font-weight:700;margin-top:12px;}
+
+  .nav{position:sticky;top:0;background:rgba(10,10,15,0.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:10px 16px;z-index:100;overflow-x:auto;white-space:nowrap;display:flex;gap:6px;-webkit-overflow-scrolling:touch;}
+  .nav a{display:inline-block;padding:8px 14px;color:var(--text-dim);text-decoration:none;font-size:0.75rem;font-weight:500;border-radius:20px;background:var(--surface);border:1px solid var(--border);white-space:nowrap;flex-shrink:0;}
+  .nav a:hover{color:var(--accent-light);border-color:var(--accent);}
+
+  .container{max-width:900px;margin:0 auto;padding:0 40px;}
+
+  .section{padding:48px 0;border-bottom:1px solid var(--border);}
+  .section:last-child{border-bottom:none;}
+  .section-num{font-size:0.7rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:3px;margin-bottom:6px;}
+  .section h2{font-size:1.6rem;font-weight:700;color:var(--text-bright);margin-bottom:20px;}
+  .section h3{font-size:1.15rem;font-weight:600;color:var(--text-bright);margin:20px 0 10px;}
+  .section p{margin-bottom:12px;font-size:0.92rem;}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin:16px 0;}
+  .card h4{font-size:1rem;color:var(--text-bright);margin-bottom:8px;font-weight:600;}
+  .card p{font-size:0.88rem;color:var(--text-dim);}
+
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:0.85rem;}
+  th{background:var(--surface-2);color:var(--accent-light);font-weight:600;text-align:left;padding:10px 14px;border:1px solid var(--border);font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;}
+  td{padding:10px 14px;border:1px solid var(--border);color:var(--text);vertical-align:top;}
+  tr:nth-child(even) td{background:rgba(26,26,46,0.3);}
+
+  .tag{display:inline-block;padding:2px 10px;border-radius:20px;font-size:0.72rem;font-weight:600;margin:2px;}
+  .tag-green{background:rgba(0,184,148,0.15);color:var(--green);}
+  .tag-purple{background:rgba(108,92,231,0.15);color:var(--accent-light);}
+  .tag-yellow{background:rgba(253,203,110,0.15);color:var(--yellow);}
+  .tag-red{background:rgba(225,112,85,0.15);color:var(--red);}
+
+  .code{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;font-family:'JetBrains Mono','Fira Code',monospace;font-size:0.78rem;color:var(--text);overflow-x:auto;margin:12px 0;line-height:1.5;white-space:pre;}
+
+  .flow{display:flex;align-items:center;justify-content:center;gap:6px;padding:20px 0;flex-wrap:wrap;}
+  .flow-box{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px 18px;text-align:center;}
+  .flow-box .num{font-size:0.65rem;color:var(--accent);font-weight:700;letter-spacing:1px;}
+  .flow-box .title{font-size:0.85rem;color:var(--text-bright);font-weight:600;margin-top:2px;}
+  .flow-arrow{color:var(--accent);font-size:1.2rem;}
+
+  .tier{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin:10px 0;}
+  .tier-label{font-size:0.7rem;font-weight:700;letter-spacing:1px;margin-bottom:8px;}
+  .tier-mods{display:flex;gap:6px;flex-wrap:wrap;}
+  .tier-mod{padding:4px 12px;border-radius:6px;font-size:0.75rem;font-weight:600;}
+  .t-core .tier-label{color:var(--green);} .t-core .tier-mod{background:rgba(0,184,148,0.12);color:var(--green);}
+  .t-diff .tier-label{color:var(--accent-light);} .t-diff .tier-mod{background:rgba(108,92,231,0.12);color:var(--accent-light);}
+  .t-bonus .tier-label{color:var(--yellow);} .t-bonus .tier-mod{background:rgba(253,203,110,0.12);color:var(--yellow);}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0;}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:16px 0;}
+
+  /* Feedback */
+  .fb{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-top:20px;}
+  .fb-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;}
+  .fb-title{font-size:0.75rem;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:1.5px;}
+  .fb-btns{display:flex;gap:6px;}
+  .fb-btn{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.2s;}
+  .fb-btn:hover{border-color:var(--text-dim);color:var(--text);}
+  .fb-btn.ok.active{background:rgba(0,184,148,0.2);border-color:var(--green);color:var(--green);}
+  .fb-btn.edit.active{background:rgba(253,203,110,0.2);border-color:var(--yellow);color:var(--yellow);}
+  .fb-btn.reject.active{background:rgba(225,112,85,0.2);border-color:var(--red);color:var(--red);}
+  .fb-text{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:0.85rem;font-family:inherit;resize:vertical;min-height:50px;line-height:1.5;}
+  .fb-text::placeholder{color:var(--text-dim);opacity:0.5;}
+  .fb-text:focus{outline:none;border-color:var(--accent);}
+  .fb-saved{font-size:0.72rem;color:var(--green);font-weight:600;margin-top:6px;text-align:right;display:none;}
+
+  @media(max-width:768px){
+    .hero{padding:40px 16px;} .hero h1{font-size:1.8rem;} .container{padding:0 16px;}
+    .section{padding:28px 0;} .section h2{font-size:1.3rem;} .section p{font-size:0.88rem;}
+    table,thead,tbody,th,td,tr{display:block;width:100%;white-space:normal;}
+    thead{display:none;} tr{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;}
+    td{border:none;padding:3px 0;font-size:0.85rem;display:flex;align-items:flex-start;gap:8px;}
+    td::before{content:attr(data-label);font-size:0.68rem;font-weight:700;color:var(--accent-light);text-transform:uppercase;min-width:65px;flex-shrink:0;padding-top:2px;}
+    td[data-label=""]::before{display:none;}
+    td:first-child{font-size:0.9rem;font-weight:600;padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:6px;display:block;}
+    tr:nth-child(even) td{background:none;}
+    .grid2,.grid3{grid-template-columns:1fr !important;}
+    .flow{flex-direction:column;gap:4px;} .flow-arrow{transform:rotate(90deg);}
+    .code{font-size:0.7rem;padding:12px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>Magi<span>C</span> Spec</h1>
+  <div class="sub">Design Specification v1.0 — Review</div>
+  <div class="tag">11 SECTIONS</div>
+</div>
+
+<div class="nav">
+  <a href="#s1">Vision</a>
+  <a href="#s2">Product</a>
+  <a href="#s3">Protocol</a>
+  <a href="#s4">Entities</a>
+  <a href="#s5">Architecture</a>
+  <a href="#s6">Tech Stack</a>
+  <a href="#s7">Modules</a>
+  <a href="#s8">Data Flow</a>
+  <a href="#s9">CEO Use Case</a>
+  <a href="#s10">Viral Strategy</a>
+  <a href="#s11">Risks</a>
+</div>
+
+<div class="container">
+
+<!-- S1: Vision -->
+<div class="section" id="s1">
+  <div class="section-num">Section 01</div>
+  <h2>Vision & Problem Statement</h2>
+
+  <div class="card">
+    <h4>Thi truong</h4>
+    <p><strong style="font-size:1.2rem;color:var(--accent-light);">$7.84B</strong> (2025) &rarr; <strong style="font-size:1.2rem;color:var(--green);">$52B</strong> (2030) — CAGR 45.8%</p>
+    <p>Multi-agent systems: 48.5% CAGR. 100% Fortune 500 planning AI agent adoption.</p>
+  </div>
+
+  <h3>5 Pain Points &rarr; 5 Modules</h3>
+  <table>
+    <tr><th>Pain Point</th><th>Impact</th><th>MagiC Module</th></tr>
+    <tr><td data-label="">Chi phi tang</td><td data-label="Impact">Khong biet tong chi phi across agents</td><td data-label="Module"><span class="tag tag-green">Cost Controller</span></td></tr>
+    <tr><td data-label="">Gia tri khong ro</td><td data-label="Impact">Khong do duoc agent nao hieu qua</td><td data-label="Module"><span class="tag tag-green">Evaluator</span></td></tr>
+    <tr><td data-label="">Thieu governance</td><td data-label="Impact">Khong kiem soat quyen han</td><td data-label="Module"><span class="tag tag-green">Org Manager</span></td></tr>
+    <tr><td data-label="">Risk control yeu</td><td data-label="Impact">Agent fail im lang</td><td data-label="Module"><span class="tag tag-green">Monitor + Gateway</span></td></tr>
+    <tr><td data-label="">Skills gap</td><td data-label="Impact">Team khong du ky nang</td><td data-label="Module"><span class="tag tag-green">Open Protocol</span></td></tr>
+  </table>
+
+  <div class="card">
+    <h4>"Kubernetes Moment"</h4>
+    <p>Docker (build) &rarr; Kubernetes (manage) thang lon hon.</p>
+    <p>LangChain/CrewAI (build agents) &rarr; <strong>MagiC (manage any agents)</strong> = next layer.</p>
+  </div>
+</div>
+
+<!-- S2: Product -->
+<div class="section" id="s2">
+  <div class="section-num">Section 02</div>
+  <h2>Product Definition</h2>
+
+  <div class="grid2">
+    <div class="card">
+      <h4>MagiC LA GI</h4>
+      <p>&bull; Open-source framework (Go + Python SDK)</p>
+      <p>&bull; Open protocol (MCP&sup2;) cho AI worker integration</p>
+      <p>&bull; Fleet management: registry, routing, monitoring, eval, cost, orchestration</p>
+    </div>
+    <div class="card">
+      <h4>MagiC KHONG PHAI</h4>
+      <p>&bull; Khong phai AI agent builder (dung LangChain, CrewAI)</p>
+      <p>&bull; Khong phai chatbot platform (dung Botpress)</p>
+      <p>&bull; Khong phai workflow tool (dung n8n)</p>
+      <p>&bull; MagiC <strong>quan ly</strong> agents built voi bat ky tool nao</p>
+    </div>
+  </div>
+
+  <table>
+    <tr><th>Branding</th><th>Noi dung</th></tr>
+    <tr><td data-label="">Ten</td><td data-label="Noi dung"><strong>MagiC</strong> (C = Company / Crew / Claw)</td></tr>
+    <tr><td data-label="">Tagline chinh</td><td data-label="Noi dung">"Where AI becomes a Company"</td></tr>
+    <tr><td data-label="">Landing page</td><td data-label="Noi dung">"Run your AI workforce like a real team"</td></tr>
+    <tr><td data-label="">GitHub</td><td data-label="Noi dung">"Don't build another AI. Manage the ones you have."</td></tr>
+    <tr><td data-label="">License</td><td data-label="Noi dung">Apache 2.0</td></tr>
+    <tr><td data-label="">Business model</td><td data-label="Noi dung">Open-source core + SaaS managed platform (later)</td></tr>
+  </table>
+
+  <h3>Tai sao Apache 2.0 (khong phai MIT)? <span class="tag tag-green">DA CAP NHAT</span></h3>
+  <table>
+    <tr><th></th><th>MIT</th><th>Apache 2.0</th></tr>
+    <tr><td data-label="">Patent protection</td><td data-label="MIT"><strong style="color:var(--red);">KHONG CO</strong></td><td data-label="Apache"><strong style="color:var(--green);">CO</strong> &mdash; bao ve khoi patent troll</td></tr>
+    <tr><td data-label="">Yeu cau</td><td data-label="MIT">Giu copyright</td><td data-label="Apache">Copyright + ghi ro thay doi</td></tr>
+    <tr><td data-label="">Ai dung</td><td data-label="MIT">React, Next.js</td><td data-label="Apache">K8s, Docker, Dify, TensorFlow</td></tr>
+  </table>
+  <div class="card">
+    <p><strong>Ly do:</strong> (1) Patent shield — ai dung MagiC roi kien patent thi license tu dong bi thu hoi. (2) Chuan infra — K8s, Docker deu Apache 2.0. (3) Enterprise legal team approve nhanh hon MIT.</p>
+  </div>
+</div>
+
+<!-- S3: Protocol -->
+<div class="section" id="s3">
+  <div class="section-num">Section 03</div>
+  <h2>MagiC Protocol (MCP&sup2;)</h2>
+
+  <h3>MCP&sup2; khac gi MCP (Anthropic)? <span class="tag tag-green">DA CAP NHAT</span></h3>
+  <table>
+    <tr><th></th><th>MCP (Anthropic)</th><th>MagiC Protocol (MCP&sup2;)</th></tr>
+    <tr><td data-label="">Ket noi</td><td data-label="MCP">1 AI &harr; 1 tool</td><td data-label="MCP2"><strong>1 Org &harr; N workers</strong></td></tr>
+    <tr><td data-label="">Quan he</td><td data-label="MCP">Client-Server (1:1)</td><td data-label="MCP2"><strong>Org-Fleet (1:N)</strong></td></tr>
+    <tr><td data-label="">Lifecycle</td><td data-label="MCP">Khong co</td><td data-label="MCP2"><strong>register &rarr; heartbeat &rarr; assign &rarr; complete &rarr; deregister</strong></td></tr>
+    <tr><td data-label="">Routing</td><td data-label="MCP">Khong. Hardcode tool</td><td data-label="MCP2"><strong>best_match, round_robin, cheapest, fastest</strong></td></tr>
+    <tr><td data-label="">Cost</td><td data-label="MCP">Khong</td><td data-label="MCP2"><strong>Per task/worker, budget alerts</strong></td></tr>
+    <tr><td data-label="">Quality</td><td data-label="MCP">Khong</td><td data-label="MCP2"><strong>Schema validation, LLM-as-judge</strong></td></tr>
+    <tr><td data-label="">Collab</td><td data-label="MCP">Khong</td><td data-label="MCP2"><strong>delegate, broadcast</strong></td></tr>
+    <tr><td data-label="">Fail-safe</td><td data-label="MCP">Khong</td><td data-label="MCP2"><strong>retry &rarr; delegate &rarr; notify</strong></td></tr>
+  </table>
+  <div class="card">
+    <p><strong>Tom lai:</strong> MCP = "AI goi 1 tool". MCP&sup2; = "Organization quan ly fleet AI workers". Giong su khac biet giua <strong>goi 1 API</strong> vs dung <strong>API Gateway + Load Balancer + Monitoring</strong>.</p>
+  </div>
+
+  <h3>5 Nguyen tac</h3>
+  <table>
+    <tr><th>Nguyen tac</th><th>Mo ta</th></tr>
+    <tr><td data-label=""><strong>Transport-agnostic</strong></td><td data-label="Mo ta">HTTP, WebSocket, gRPC. Worker chon transport</td></tr>
+    <tr><td data-label=""><strong>Capability-based</strong></td><td data-label="Mo ta">Worker tu khai bao kha nang. Org route theo capability</td></tr>
+    <tr><td data-label=""><strong>Contract-driven</strong></td><td data-label="Mo ta">Task co contract: input/output schema, quality, timeout, cost</td></tr>
+    <tr><td data-label=""><strong>Human-in-the-loop</strong></td><td data-label="Mo ta">Nguoi dung luon la boss. Approve/reject/redirect bat ky luc nao</td></tr>
+    <tr><td data-label=""><strong>Fail-safe</strong></td><td data-label="Mo ta">Fail &rarr; retry &rarr; delegate &rarr; notify human</td></tr>
+  </table>
+
+  <h3>Worker Registration (JSON example)</h3>
+  <div class="code">{
+  "type": "worker.register",
+  "payload": {
+    "name": "OpenClaw Instance #1",
+    "capabilities": [{
+      "name": "content_writing",
+      "input_schema": { "topic": "string", "tone": "string" },
+      "output_schema": { "title": "string", "body": "string" },
+      "estimated_cost_per_call": 0.05
+    }],
+    "endpoint": {
+      "type": "http",
+      "url": "http://openclaw-1:8000/mcp2"
+    },
+    "limits": {
+      "max_concurrent_tasks": 5,
+      "max_cost_per_day": 10.00
+    }
+  }
+}</div>
+
+  <h3>Task Contract (JSON example)</h3>
+  <div class="code">{
+  "type": "task.assign",
+  "payload": {
+    "task_id": "task_001",
+    "task_type": "content_writing",
+    "input": { "topic": "AI trends 2026", "tone": "professional" },
+    "contract": {
+      "output_schema": { "title": "string", "body": "string (>1000 chars)" },
+      "quality_criteria": [
+        { "metric": "no_hallucination", "threshold": true },
+        { "metric": "seo_score", "threshold": 80 }
+      ],
+      "timeout_ms": 300000,
+      "max_cost": 0.50,
+      "retry_policy": { "max_retries": 2 }
+    },
+    "routing": { "strategy": "best_match" }
+  }
+}</div>
+
+  <h3>3 Communication Patterns <span class="tag tag-green">MOI</span></h3>
+  <div class="card">
+    <p><strong>Pattern 1: Worker &harr; Org (mac dinh)</strong> &mdash; Tat ca traffic qua Org. Org kiem soat, log, cost track.</p>
+    <p><strong>Pattern 2: Worker &harr; Worker (direct)</strong> &mdash; P2P cho real-time (streaming, co-edit). Org monitor nhung khong route.</p>
+    <p><strong>Pattern 3: Worker &harr; Environment</strong> &mdash; Worker dung MCP goi tools (DB, API, files). Org co the gate access qua policy.</p>
+  </div>
+  <div class="card">
+    <p><strong>MCP + MCP&sup2; = BO SUNG:</strong> MCP ket noi worker &harr; tools. MCP&sup2; ket noi org &harr; workers. 2 tang khac nhau.</p>
+  </div>
+
+  <h3>14 Message Types (da them 4 moi)</h3>
+  <table>
+    <tr><th>Group</th><th>Message</th><th>Direction</th></tr>
+    <tr><td data-label="">Worker</td><td data-label="Message">worker.register</td><td data-label="Direction">Worker &rarr; Org</td></tr>
+    <tr><td data-label="">Worker</td><td data-label="Message">worker.heartbeat</td><td data-label="Direction">Worker &rarr; Org</td></tr>
+    <tr><td data-label="">Worker</td><td data-label="Message">worker.deregister</td><td data-label="Direction">Worker &rarr; Org</td></tr>
+    <tr><td data-label="">Worker</td><td data-label="Message">worker.update_capabilities</td><td data-label="Direction">Worker &rarr; Org</td></tr>
+    <tr><td data-label="">Task</td><td data-label="Message">task.assign</td><td data-label="Direction">Org &rarr; Worker</td></tr>
+    <tr><td data-label="">Task</td><td data-label="Message">task.accept / task.reject</td><td data-label="Direction">Worker &rarr; Org</td></tr>
+    <tr><td data-label="">Task</td><td data-label="Message">task.progress</td><td data-label="Direction">Worker &rarr; Org</td></tr>
+    <tr><td data-label="">Task</td><td data-label="Message">task.complete / task.fail</td><td data-label="Direction">Worker &rarr; Org</td></tr>
+    <tr><td data-label="">Collab</td><td data-label="Message">worker.delegate</td><td data-label="Direction">Worker &rarr; Org</td></tr>
+    <tr><td data-label="">Collab</td><td data-label="Message">org.broadcast</td><td data-label="Direction">Org &rarr; All</td></tr>
+    <tr><td data-label=""><span class="tag tag-green">MOI</span> Direct</td><td data-label="Message">worker.open_channel</td><td data-label="Direction">Worker &rarr; Org</td></tr>
+    <tr><td data-label=""><span class="tag tag-green">MOI</span> Direct</td><td data-label="Message">worker.close_channel</td><td data-label="Direction">Worker &rarr; Org</td></tr>
+    <tr><td data-label=""><span class="tag tag-green">MOI</span> Env</td><td data-label="Message">env.access_request</td><td data-label="Direction">Worker &rarr; Org</td></tr>
+    <tr><td data-label=""><span class="tag tag-green">MOI</span> Env</td><td data-label="Message">env.access_granted</td><td data-label="Direction">Org &rarr; Worker</td></tr>
+  </table>
+</div>
+
+<!-- S4: Entities -->
+<div class="section" id="s4">
+  <div class="section-num">Section 04 <span class="tag tag-green">DA CAP NHAT</span></div>
+  <h2>10 Core Entities</h2>
+  <p>6 goc + 4 moi tu best practice analysis (CrewAI, AutoGen, LangGraph, Agno).</p>
+
+  <div class="grid3">
+    <div class="card"><h4>Organization</h4><p>To chuc tong. Teams, policies, budget, LLM proxy.</p></div>
+    <div class="card"><h4>Team</h4><p>Nhom workers. Policies, budget, approval.</p></div>
+    <div class="card"><h4>Worker</h4><p>AI agent da join. Capabilities, endpoint, status.</p></div>
+    <div class="card"><h4>Task</h4><p>Don vi cong viec. Contract (I/O, quality, cost).</p></div>
+    <div class="card"><h4>Workflow</h4><p>Chuoi tasks DAG. Parallel, conditions, errors.</p></div>
+    <div class="card"><h4>Channel</h4><p>Kenh tuong tac (API, Slack, Zalo).</p></div>
+    <div class="card" style="border-color:var(--green);"><h4>Tool <span class="tag tag-green">MOI</span></h4><p>Reusable capability (MCP tool, API, function). Shared across workers.</p></div>
+    <div class="card" style="border-color:var(--green);"><h4>Memory <span class="tag tag-green">MOI</span></h4><p>Persistent state across tasks. Scoped: org/team/worker/workflow.</p></div>
+    <div class="card" style="border-color:var(--green);"><h4>Event <span class="tag tag-green">MOI</span></h4><p>System event (task.completed, budget.exceeded...). For monitoring &amp; triggers.</p></div>
+    <div class="card" style="border-color:var(--green);"><h4>Plugin <span class="tag tag-green">MOI</span></h4><p>Extension point. Custom router strategy, evaluator, storage, middleware.</p></div>
+  </div>
+
+  <h3>So sanh voi doi thu</h3>
+  <table>
+    <tr><th>Entity</th><th>CrewAI</th><th>AutoGen</th><th>Agno</th><th>MagiC</th></tr>
+    <tr><td data-label="">Agent/Worker</td><td data-label="CrewAI">Agent</td><td data-label="AutoGen">Agent</td><td data-label="Agno">Agent</td><td data-label="MagiC"><strong>Worker</strong></td></tr>
+    <tr><td data-label="">Team</td><td data-label="CrewAI">Crew</td><td data-label="AutoGen">GroupChat</td><td data-label="Agno">Team</td><td data-label="MagiC"><strong>Team</strong></td></tr>
+    <tr><td data-label="">Tool</td><td data-label="CrewAI">Tool</td><td data-label="AutoGen">Tool</td><td data-label="Agno">Tool</td><td data-label="MagiC"><strong>Tool</strong></td></tr>
+    <tr><td data-label="">Memory</td><td data-label="CrewAI">Knowledge</td><td data-label="AutoGen">-</td><td data-label="Agno">Memory</td><td data-label="MagiC"><strong>Memory</strong></td></tr>
+    <tr><td data-label="">Event</td><td data-label="CrewAI">-</td><td data-label="AutoGen">Event</td><td data-label="Agno">-</td><td data-label="MagiC"><strong>Event</strong></td></tr>
+    <tr><td data-label="">Plugin</td><td data-label="CrewAI">-</td><td data-label="AutoGen">Custom</td><td data-label="Agno">MCP</td><td data-label="MagiC"><strong>Plugin</strong></td></tr>
+    <tr><td data-label="">Organization</td><td data-label="CrewAI">-</td><td data-label="AutoGen">-</td><td data-label="Agno">-</td><td data-label="MagiC"><strong>UNIQUE</strong></td></tr>
+    <tr><td data-label="">Channel</td><td data-label="CrewAI">-</td><td data-label="AutoGen">-</td><td data-label="Agno">-</td><td data-label="MagiC"><strong>UNIQUE</strong></td></tr>
+  </table>
+
+  <h3>Entity Relationship</h3>
+  <div class="code">Organization (1)
+  +-- Teams (N)
+  |     +-- Workers (N)
+  |     |     +-- Tools (N)
+  |     +-- Policies
+  +-- Workflows (N)
+  |     +-- Tasks (N)
+  +-- Channels (N)
+  +-- Tools Registry (shared)
+  +-- Memory Store (persistent state)
+  +-- Event Bus (system events)
+  +-- Plugin Registry (extensions)
+  +-- Knowledge Hub</div>
+</div>
+
+<!-- S5: Architecture -->
+<div class="section" id="s5">
+  <div class="section-num">Section 05</div>
+  <h2>Module Architecture</h2>
+
+  <div class="code">User Request
+    |
+    v
+  Gateway (auth, rate limit, request ID)
+    |
+    v
+  Router --> Registry (find best worker)
+    |
+    v
+  Orchestrator (multi-step workflows)
+    |
+    v
+  [ Worker A | Worker B | Worker C ]
+    |
+    v
+  Monitor    <-- all events
+  Evaluator  <-- quality check
+  Cost Ctrl  <-- track spending
+  Org Mgr    <-- enforce policies
+  Knowledge  <-- shared context</div>
+
+  <h3>Build Tiers</h3>
+  <div class="tier t-core">
+    <div class="tier-label">TIER 1 — CORE (tuan 1-2)</div>
+    <div class="tier-mods"><span class="tier-mod">Gateway</span><span class="tier-mod">Registry</span><span class="tier-mod">Router</span><span class="tier-mod">Monitor</span></div>
+  </div>
+  <div class="tier t-diff">
+    <div class="tier-label">TIER 2 — DIFFERENTIATOR (tuan 3-5)</div>
+    <div class="tier-mods"><span class="tier-mod">Orchestrator</span><span class="tier-mod">Evaluator</span><span class="tier-mod">Cost Controller</span><span class="tier-mod">Org Manager</span></div>
+  </div>
+  <div class="tier t-bonus">
+    <div class="tier-label">TIER 3 — BONUS (tuan 6)</div>
+    <div class="tier-mods"><span class="tier-mod">Knowledge Hub</span></div>
+  </div>
+</div>
+
+<!-- S6: Tech -->
+<div class="section" id="s6">
+  <div class="section-num">Section 06</div>
+  <h2>Tech Stack & Project Structure</h2>
+
+  <table>
+    <tr><th>Component</th><th>Language</th><th>Ly do</th></tr>
+    <tr><td data-label="">Core (9 modules)</td><td data-label="Lang"><strong>Go</strong></td><td data-label="Ly do">Fast, goroutines, K8s/Docker precedent</td></tr>
+    <tr><td data-label="">Python SDK</td><td data-label="Lang"><strong>Python</strong></td><td data-label="Ly do">AI ecosystem (LangChain, LiteLLM)</td></tr>
+    <tr><td data-label="">Go SDK</td><td data-label="Lang"><strong>Go</strong></td><td data-label="Ly do">Native performance cho Go devs</td></tr>
+    <tr><td data-label="">Protocol spec</td><td data-label="Lang"><strong>JSON</strong></td><td data-label="Ly do">Language-agnostic</td></tr>
+  </table>
+
+  <h3>Project Structure</h3>
+  <div class="code">magic-claw/
++-- core/                  # Go — 9 modules
+|   +-- cmd/magic/         # CLI: magic serve, magic worker list
+|   +-- internal/
+|   |   +-- gateway/       # HTTP/gRPC entry
+|   |   +-- registry/      # Worker registration
+|   |   +-- router/        # Task routing
+|   |   +-- monitor/       # Observability
+|   |   +-- orchestrator/  # Workflow execution
+|   |   +-- evaluator/     # Quality assessment
+|   |   +-- costctrl/      # Budget management
+|   |   +-- orgmgr/        # Teams, RBAC, policies
+|   |   +-- knowledge/     # Shared KB
+|   |   +-- protocol/      # MCP2 message types
+|   +-- pkg/mcp2/          # Public Go SDK
++-- sdk/python/            # pip install magic-claw
++-- protocol/              # Spec + JSON schemas + conformance tests
++-- examples/
+|   +-- hello-worker/      # 5 min setup
+|   +-- ceo-division/      # First use case
++-- docs/
++-- Dockerfile             # Multi-stage
++-- docker-compose.yml
++-- Makefile</div>
+
+  <h3>Storage</h3>
+  <table>
+    <tr><th>Data</th><th>Dev</th><th>Prod</th></tr>
+    <tr><td data-label="">Worker registry</td><td data-label="Dev">In-memory + SQLite</td><td data-label="Prod">PostgreSQL</td></tr>
+    <tr><td data-label="">Tasks & results</td><td data-label="Dev">SQLite</td><td data-label="Prod">PostgreSQL</td></tr>
+    <tr><td data-label="">Metrics</td><td data-label="Dev">In-memory</td><td data-label="Prod">Prometheus</td></tr>
+    <tr><td data-label="">Config</td><td data-label="Dev">YAML + env</td><td data-label="Prod">YAML + env</td></tr>
+    <tr><td data-label="">Memory</td><td data-label="Dev">In-memory + SQLite</td><td data-label="Prod">Redis / PostgreSQL</td></tr>
+  </table>
+
+  <h3>Extensibility Architecture <span class="tag tag-green">MOI</span></h3>
+  <p>Moi component chinh co the mo rong hoac thay the qua Plugin system:</p>
+  <table>
+    <tr><th>Extension Point</th><th>Custom duoc gi</th><th>Cach lam</th></tr>
+    <tr><td data-label="">Router Strategy</td><td data-label="Custom">Logic routing rieng</td><td data-label="Cach">Implement RouterStrategy interface</td></tr>
+    <tr><td data-label="">Evaluator Criteria</td><td data-label="Custom">Tieu chi danh gia rieng</td><td data-label="Cach">Implement EvaluationCriteria interface</td></tr>
+    <tr><td data-label="">Storage Backend</td><td data-label="Custom">Redis, MongoDB, S3...</td><td data-label="Cach">Implement Store interface</td></tr>
+    <tr><td data-label="">Channel Adapter</td><td data-label="Custom">Kenh giao tiep moi</td><td data-label="Cach">Implement ChannelAdapter interface</td></tr>
+    <tr><td data-label="">Middleware</td><td data-label="Custom">Custom Gateway logic</td><td data-label="Cach">HTTP middleware chain</td></tr>
+    <tr><td data-label="">Event Hooks</td><td data-label="Custom">React to system events</td><td data-label="Cach">Subscribe via Plugin hooks</td></tr>
+    <tr><td data-label="">Tool Provider</td><td data-label="Custom">Tool integrations moi</td><td data-label="Cach">Register Tool (MCP hoac native)</td></tr>
+  </table>
+  <div class="code">// Go interface examples:
+type RouterStrategy interface {
+    Name() string
+    Score(task Task, workers []Worker) []WorkerScore
+}
+
+type Store interface {
+    Get(key string) ([]byte, error)
+    Set(key string, value []byte, ttl time.Duration) error
+    Delete(key string) error
+    List(prefix string) ([]string, error)
+}</div>
+</div>
+
+<!-- S7: Module Specs -->
+<div class="section" id="s7">
+  <div class="section-num">Section 07</div>
+  <h2>Module Specifications</h2>
+
+  <table>
+    <tr><th>Module</th><th>Vai tro</th><th>Key APIs / Logic</th></tr>
+    <tr><td data-label=""><strong>Gateway</strong></td><td data-label="Vai tro">Entry point, auth, rate limit</td><td data-label="APIs">POST /tasks, GET /workers, /health, /metrics</td></tr>
+    <tr><td data-label=""><strong>Registry</strong></td><td data-label="Vai tro">Worker CRUD + health check</td><td data-label="APIs">FindWorkers(cap), BestMatch(reqs), HealthCheck loop</td></tr>
+    <tr><td data-label=""><strong>Router</strong></td><td data-label="Vai tro">Tim worker phu hop</td><td data-label="APIs">Strategies: best_match, round_robin, cheapest, fastest, specific</td></tr>
+    <tr><td data-label=""><strong>Monitor</strong></td><td data-label="Vai tro">Logs, metrics, events</td><td data-label="APIs">Structured JSON logs, Prometheus metrics, event bus</td></tr>
+    <tr><td data-label=""><strong>Orchestrator</strong></td><td data-label="Vai tro">DAG workflow execution</td><td data-label="APIs">Parse DAG, parallel exec, step dependencies, failure handling</td></tr>
+    <tr><td data-label=""><strong>Evaluator</strong></td><td data-label="Vai tro">Output quality</td><td data-label="APIs">Schema validation, LLM-as-judge, historical comparison</td></tr>
+    <tr><td data-label=""><strong>Cost Ctrl</strong></td><td data-label="Vai tro">Budget & alerts</td><td data-label="APIs">Track per task/worker/team, alerts 50/80/100%, auto-pause</td></tr>
+    <tr><td data-label=""><strong>Org Mgr</strong></td><td data-label="Vai tro">Teams, RBAC, policies</td><td data-label="APIs">Team CRUD, worker assignment, audit log</td></tr>
+    <tr><td data-label=""><strong>Knowledge</strong></td><td data-label="Vai tro">Shared KB</td><td data-label="APIs">File storage, metadata search, per-team scoping</td></tr>
+  </table>
+
+  <h3>Router Scoring</h3>
+  <div class="code">score = capability_match * 0.4
+      + availability      * 0.3
+      + perf_history       * 0.2
+      + cost_efficiency    * 0.1</div>
+</div>
+
+<!-- S8: Data Flow -->
+<div class="section" id="s8">
+  <div class="section-num">Section 08</div>
+  <h2>Data Flow & Sequences</h2>
+
+  <h3>Simple Task</h3>
+  <div class="code">User --> Gateway --> Router --> Registry (find worker)
+                        |
+                        v
+                    Worker (task.assign)
+                        |
+                    task.accept
+                    task.progress (50%)
+                    task.complete
+                        |
+                        v
+                    Evaluator (quality check)
+                    CostCtrl (record cost)
+                    Monitor (log event)
+                        |
+                        v
+User <-- 200 { result } <-- Gateway</div>
+
+  <h3>Complex Workflow — DAG Parallel Execution <span class="tag tag-green">DA CAP NHAT</span></h3>
+
+  <p>Vi du: "Product Launch Campaign" — 5 steps, 2 nhanh song song:</p>
+
+  <div class="code">        research (step 1)
+       /         \
+      v           v
+  content       leads        &lt;-- 2 nhanh SONG SONG
+  (step 2)     (step 4)
+      |           |
+      v           |
+    seo           |
+  (step 3)        |
+      \          /
+       v        v
+   [CEO APPROVAL GATE]
+          |
+          v
+     outreach (step 5)       &lt;-- CHO CA 2 nhanh xong</div>
+
+  <h3>Orchestrator xu ly tung buoc</h3>
+  <div class="code">1. Parse workflow --> build DAG
+
+2. Tim steps khong co dependency --> step 1 (research)
+   Router tim worker --> assign
+
+3. Step 1 COMPLETE --> check dependents:
+   - Step 2 (content): depends [step1 OK] --> ASSIGN
+   - Step 4 (leads):   depends [step1 OK] --> ASSIGN
+   --> 2 tasks chay SONG SONG (goroutines)
+
+4. Step 2 COMPLETE --> check:
+   - Step 3 (seo):      depends [step2 OK] --> ASSIGN
+   - Step 5 (outreach): depends [step2 OK, step4 ?]
+     --> step4 CHUA xong --> DOI
+
+5. Step 4 COMPLETE --> check:
+   - Step 5: depends [step2 OK, step4 OK] --> ALL MET
+     --> approval_required: true --> DUNG LAI
+     --> Gui notification cho CEO review
+
+6. CEO APPROVE --> Orchestrator ASSIGN step 5
+
+7. Step 5 COMPLETE --> Workflow DONE</div>
+
+  <h3>Error Handling</h3>
+  <table>
+    <tr><th>on_failure</th><th>Hanh dong</th></tr>
+    <tr><td data-label="">"retry"</td><td data-label="Hanh dong">Thu lai max_retries lan voi backoff</td></tr>
+    <tr><td data-label="">"skip"</td><td data-label="Hanh dong">Bo qua step, tiep tuc downstream</td></tr>
+    <tr><td data-label="">"abort"</td><td data-label="Hanh dong">Dung toan bo workflow, bao user</td></tr>
+    <tr><td data-label="">"reassign"</td><td data-label="Hanh dong">Router chon worker KHAC, thu lai</td></tr>
+  </table>
+  <div class="card">
+    <p><strong>Vi du:</strong> Step 2 (content) fail &rarr; retry 2 lan &rarr; van fail &rarr; reassign worker khac &rarr; van fail &rarr; abort. Steps 3, 5 bi BLOCK. User duoc thong bao: "Content failed. Steps 3, 5 blocked. Action required."</p>
+  </div>
+
+  <h3>Worker Delegation (giua task)</h3>
+  <div class="code">Worker A (content_writing) dang viet bai
+  |
+  | Can data thong ke --> gui worker.delegate
+  |   { capability: "data_analysis", input: {...} }
+  v
+Org nhan delegate request
+  --> Router tim Worker B (data_analysis)
+  --> task.assign --> Worker B
+  --> Worker B complete --> tra data ve Worker A
+  --> Worker A tiep tuc viet voi data
+  --> task.complete --> bai viet hoan chinh</div>
+</div>
+
+<!-- S9: CEO Use Case -->
+<div class="section" id="s9">
+  <div class="section-num">Section 09</div>
+  <h2>CEO Division Orchestration</h2>
+
+  <div class="code">CEO (user)
++-- Marketing Division
+|   +-- ContentBot (content_writing)
+|   +-- SEOBot (seo_optimization)
++-- Sales Division
+|   +-- LeadBot (lead_generation)
+|   +-- OutreachBot (email_outreach)
++-- Engineering Division
+|   +-- CodeReviewBot (code_review)
+|   +-- DocBot (documentation)
++-- Finance Division
+    +-- ReportBot (financial_reports)</div>
+
+  <h3>Cross-Division Workflow: Product Launch</h3>
+  <div class="code">workflow: "Product Launch Campaign"
+steps:
+  - research    (marketing)
+  - content     (marketing)     [depends: research]
+  - seo         (marketing)     [depends: content]
+  - leads       (sales)         [depends: research]  # parallel
+  - outreach    (sales)         [depends: leads, content]</div>
+
+  <h3>CEO Dashboard</h3>
+  <div class="code">+--------------------------------------------+
+|  MagiC Dashboard — CEO View               |
++--------------------------------------------+
+|  Workers: 7 active / 0 offline             |
+|  Tasks today: 23 done / 2 failed           |
+|  Cost today: $4.52 / $20 budget            |
+|                                            |
+|  Marketing  ========..  82% quality        |
+|  Sales      ==========  95% quality        |
+|  Engineering=======...  70% quality        |
+|  Finance    =========.  91% quality        |
++--------------------------------------------+</div>
+</div>
+
+<!-- S10: Viral -->
+<div class="section" id="s10">
+  <div class="section-num">Section 10</div>
+  <h2>Open-Source & Viral Strategy</h2>
+
+  <h3>Hello World Worker (< 20 lines Python)</h3>
+  <div class="code">from magic_claw import Worker, capability
+
+worker = Worker(name="HelloBot", endpoint="http://localhost:9000")
+
+@worker.capability("greeting")
+def greet(name: str) -> str:
+    return f"Hello, {name}! I'm managed by MagiC."
+
+worker.register("http://localhost:8899")
+worker.serve()</div>
+
+  <h3>Viral Checklist</h3>
+  <table>
+    <tr><th>#</th><th>Item</th><th>Priority</th></tr>
+    <tr><td data-label="">&bull;</td><td data-label="Item">README voi hero animation</td><td data-label=""><span class="tag tag-red">P0</span></td></tr>
+    <tr><td data-label="">&bull;</td><td data-label="Item">Quick Start &lt; 5 phut</td><td data-label=""><span class="tag tag-red">P0</span></td></tr>
+    <tr><td data-label="">&bull;</td><td data-label="Item">Hello World &lt; 20 lines</td><td data-label=""><span class="tag tag-red">P0</span></td></tr>
+    <tr><td data-label="">&bull;</td><td data-label="Item">Architecture diagram</td><td data-label=""><span class="tag tag-red">P0</span></td></tr>
+    <tr><td data-label="">&bull;</td><td data-label="Item">Comparison table vs CrewAI/AutoGen</td><td data-label=""><span class="tag tag-yellow">P1</span></td></tr>
+    <tr><td data-label="">&bull;</td><td data-label="Item">Docker one-liner</td><td data-label=""><span class="tag tag-yellow">P1</span></td></tr>
+    <tr><td data-label="">&bull;</td><td data-label="Item">OpenClaw integration example</td><td data-label=""><span class="tag tag-yellow">P1</span></td></tr>
+    <tr><td data-label="">&bull;</td><td data-label="Item">CEO Division use case</td><td data-label=""><span class="tag tag-yellow">P1</span></td></tr>
+    <tr><td data-label="">&bull;</td><td data-label="Item">Contributing guide</td><td data-label=""><span class="tag tag-green">P2</span></td></tr>
+    <tr><td data-label="">&bull;</td><td data-label="Item">Discord community</td><td data-label=""><span class="tag tag-green">P2</span></td></tr>
+  </table>
+</div>
+
+<!-- S11: Risks -->
+<div class="section" id="s11">
+  <div class="section-num">Section 11</div>
+  <h2>Risks & Mitigations</h2>
+
+  <table>
+    <tr><th>Rui ro</th><th>Muc do</th><th>Giai phap</th></tr>
+    <tr><td data-label="">9 modules scope lon</td><td data-label=""><span class="tag tag-red">CAO</span></td><td data-label="Giai phap">3-tier build. Core testable in 2 weeks</td></tr>
+    <tr><td data-label="">Go learning curve</td><td data-label=""><span class="tag tag-yellow">TB</span></td><td data-label="Giai phap">Go syntax don gian. Start voi Gateway</td></tr>
+    <tr><td data-label="">Protocol khong khop thuc te</td><td data-label=""><span class="tag tag-red">CAO</span></td><td data-label="Giai phap">Build song song voi CEO use case</td></tr>
+    <tr><td data-label="">MS/Google canh tranh</td><td data-label=""><span class="tag tag-yellow">TB</span></td><td data-label="Giai phap">Ho lock-in. MagiC = open, any-cloud</td></tr>
+    <tr><td data-label="">Adoption cham</td><td data-label=""><span class="tag tag-yellow">TB</span></td><td data-label="Giai phap">Viral README. Hello World 5 min</td></tr>
+    <tr><td data-label="">Protocol fragmentation</td><td data-label=""><span class="tag tag-green">THAP</span></td><td data-label="Giai phap">Conformance test suite + versioning</td></tr>
+  </table>
+</div>
+
+</div>
+
+<!-- Footer -->
+<div style="text-align:center;padding:40px;color:var(--text-dim);font-size:0.8rem;border-top:1px solid var(--border);">
+  MagiC Spec Review — 16/03/2026<br>
+  <div style="margin-top:16px;">
+    <button onclick="submitAll()" style="background:var(--accent);color:white;border:none;padding:10px 24px;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;">Gui tat ca feedback</button>
+  </div>
+</div>
+
+<script>
+const SECTIONS=['s1','s2','s3','s4','s5','s6','s7','s8','s9','s10','s11'];
+const FB_FILE='/api/spec-feedback';
+
+document.addEventListener('DOMContentLoaded',()=>{
+  SECTIONS.forEach(id=>{
+    const s=document.getElementById(id);if(!s)return;
+    const fb=document.createElement('div');fb.className='fb';fb.id='fb-'+id;
+    fb.innerHTML=`<div class="fb-head"><span class="fb-title">Feedback</span><div class="fb-btns"><button class="fb-btn ok" data-status="ok" onclick="ss('${id}','ok',this)">OK</button><button class="fb-btn edit" data-status="edit" onclick="ss('${id}','edit',this)">Can sua</button><button class="fb-btn reject" data-status="reject" onclick="ss('${id}','reject',this)">Reject</button></div></div><textarea class="fb-text" id="t-${id}" placeholder="Ghi chu..." rows="2"></textarea><div class="fb-saved" id="sv-${id}">Da luu!</div>`;
+    s.appendChild(fb);
+  });
+  fetch(FB_FILE).then(r=>r.json()).then(d=>{Object.entries(d).forEach(([k,v])=>{const b=document.getElementById('fb-'+k);if(!b)return;if(v.status){const btn=b.querySelector(`.fb-btn[data-status="${v.status}"]`);if(btn)btn.classList.add('active');}if(v.comment)document.getElementById('t-'+k).value=v.comment;});}).catch(()=>{});
+});
+
+function ss(id,st,btn){document.getElementById('fb-'+id).querySelectorAll('.fb-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');save(id);}
+function save(id){const b=document.getElementById('fb-'+id);const a=b.querySelector('.fb-btn.active');fetch(FB_FILE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({section:id,status:a?a.dataset.status:'pending',comment:document.getElementById('t-'+id).value})}).then(()=>{const s=document.getElementById('sv-'+id);s.style.display='block';setTimeout(()=>s.style.display='none',2000);});}
+function submitAll(){let n=0;SECTIONS.forEach(id=>{const b=document.getElementById('fb-'+id);if(b.querySelector('.fb-btn.active')||document.getElementById('t-'+id).value){save(id);n++;}});alert('Da luu '+n+'/'+SECTIONS.length+' sections. Quay lai terminal noi "doc feedback spec".');}
+document.addEventListener('focusout',e=>{if(e.target.classList.contains('fb-text')){const id=e.target.id.replace('t-','');const b=document.getElementById('fb-'+id);if(b.querySelector('.fb-btn.active')||e.target.value)save(id);}});
+</script>
+</body>
+</html>

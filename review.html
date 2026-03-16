@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MagiC - Brainstorming Review v3</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface-2: #1a1a2e;
+    --border: #2a2a3e;
+    --accent: #6c5ce7;
+    --accent-light: #a29bfe;
+    --green: #00b894;
+    --yellow: #fdcb6e;
+    --red: #e17055;
+    --blue: #74b9ff;
+    --text: #e0e0e8;
+    --text-dim: #8888a0;
+    --text-bright: #ffffff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+  }
+
+  /* Hero */
+  .hero {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    padding: 80px 40px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: -50%;
+    background: radial-gradient(circle at 30% 50%, rgba(108,92,231,0.08) 0%, transparent 50%),
+                radial-gradient(circle at 70% 50%, rgba(0,184,148,0.06) 0%, transparent 50%);
+  }
+  .hero h1 { font-size: 3rem; font-weight: 800; color: var(--text-bright); position: relative; letter-spacing: -1px; }
+  .hero h1 span { color: var(--accent-light); }
+  .hero .subtitle { font-size: 1.3rem; color: var(--text-dim); margin-top: 12px; position: relative; }
+  .hero .version { display: inline-block; background: var(--accent); color: white; padding: 2px 10px; border-radius: 10px; font-size: 0.7rem; font-weight: 700; margin-top: 16px; position: relative; }
+  .hero .date { font-size: 0.85rem; color: var(--text-dim); margin-top: 8px; position: relative; opacity: 0.6; }
+
+  /* Nav */
+  .nav {
+    position: sticky; top: 0; background: rgba(10,10,15,0.95); backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border); padding: 0 40px; z-index: 100; overflow-x: auto; white-space: nowrap;
+  }
+  .nav a {
+    display: inline-block; padding: 16px 20px; color: var(--text-dim); text-decoration: none;
+    font-size: 0.85rem; font-weight: 500; transition: color 0.2s; border-bottom: 2px solid transparent;
+  }
+  .nav a:hover { color: var(--accent-light); border-bottom-color: var(--accent); }
+
+  .container { max-width: 900px; margin: 0 auto; padding: 0 40px; }
+
+  /* Section */
+  .section { padding: 60px 0; border-bottom: 1px solid var(--border); }
+  .section:last-child { border-bottom: none; }
+  .section-number { font-size: 0.75rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 3px; margin-bottom: 8px; }
+  .section h2 { font-size: 1.8rem; font-weight: 700; color: var(--text-bright); margin-bottom: 24px; letter-spacing: -0.5px; }
+  .section p { margin-bottom: 16px; color: var(--text); }
+
+  /* Updated badge */
+  .badge-updated { display: inline-block; background: rgba(0,184,148,0.15); color: var(--green); padding: 2px 10px; border-radius: 10px; font-size: 0.68rem; font-weight: 700; letter-spacing: 1px; margin-left: 8px; vertical-align: middle; }
+
+  /* Card */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 16px; }
+  .card h3 { font-size: 1.1rem; color: var(--text-bright); margin-bottom: 12px; font-weight: 600; }
+  .card p { color: var(--text-dim); font-size: 0.95rem; }
+
+  /* Highlight card (new info) */
+  .card-new { border-color: var(--green); border-left: 3px solid var(--green); }
+
+  /* Suggestion */
+  .suggestion {
+    background: linear-gradient(135deg, rgba(108,92,231,0.08), rgba(108,92,231,0.03));
+    border: 1px solid rgba(108,92,231,0.25); border-left: 3px solid var(--accent);
+    border-radius: 0 12px 12px 0; padding: 24px; margin: 24px 0;
+  }
+  .suggestion .label { font-size: 0.75rem; font-weight: 700; color: var(--accent-light); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; }
+  .suggestion p { color: var(--text); font-size: 0.95rem; }
+
+  /* Decision box (replaces suggestion for items needing decision) */
+  .decision {
+    background: linear-gradient(135deg, rgba(253,203,110,0.08), rgba(253,203,110,0.03));
+    border: 1px solid rgba(253,203,110,0.25); border-left: 3px solid var(--yellow);
+    border-radius: 0 12px 12px 0; padding: 24px; margin: 24px 0;
+  }
+  .decision .label { font-size: 0.75rem; font-weight: 700; color: var(--yellow); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; }
+  .decision p { color: var(--text); font-size: 0.95rem; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.9rem; }
+  th { background: var(--surface-2); color: var(--accent-light); font-weight: 600; text-align: left; padding: 12px 16px; border: 1px solid var(--border); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
+  td { padding: 12px 16px; border: 1px solid var(--border); color: var(--text); vertical-align: top; }
+  tr:nth-child(even) td { background: rgba(26,26,46,0.3); }
+
+  .tag { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; margin: 2px; }
+  .tag-green { background: rgba(0,184,148,0.15); color: var(--green); }
+  .tag-yellow { background: rgba(253,203,110,0.15); color: var(--yellow); }
+  .tag-red { background: rgba(225,112,85,0.15); color: var(--red); }
+  .tag-purple { background: rgba(108,92,231,0.15); color: var(--accent-light); }
+  .tag-blue { background: rgba(116,185,255,0.15); color: var(--blue); }
+
+  /* Flow */
+  .flow { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 30px 0; flex-wrap: wrap; }
+  .flow-box { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 16px 24px; text-align: center; min-width: 120px; }
+  .flow-box .num { font-size: 0.7rem; color: var(--accent); font-weight: 700; letter-spacing: 1px; }
+  .flow-box .title { font-size: 0.95rem; color: var(--text-bright); font-weight: 600; margin-top: 4px; }
+  .flow-box .desc { font-size: 0.75rem; color: var(--text-dim); margin-top: 4px; }
+  .flow-arrow { color: var(--accent); font-size: 1.5rem; font-weight: 300; }
+
+  /* Comp grid */
+  .comp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 24px 0; }
+  .comp-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+  .comp-card h4 { color: var(--text-bright); font-size: 1rem; margin-bottom: 8px; }
+  .comp-card p { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 12px; }
+  .comp-card ul { list-style: none; padding: 0; }
+  .comp-card li { font-size: 0.82rem; padding: 4px 0; color: var(--text-dim); }
+  .comp-card li::before { content: '+ '; color: var(--green); font-weight: 700; }
+
+  /* Msg grid */
+  .msg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0; }
+  .msg-item { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; display: flex; align-items: center; gap: 12px; }
+  .msg-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; flex-shrink: 0; }
+  .msg-icon.lifecycle { background: rgba(0,184,148,0.15); color: var(--green); }
+  .msg-icon.task { background: rgba(108,92,231,0.15); color: var(--accent-light); }
+  .msg-icon.collab { background: rgba(253,203,110,0.15); color: var(--yellow); }
+  .msg-name { font-weight: 600; font-size: 0.85rem; color: var(--text-bright); }
+  .msg-desc { font-size: 0.78rem; color: var(--text-dim); }
+
+  /* Question list */
+  .question-list { list-style: none; padding: 0; }
+  .question-list li { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 22px; margin-bottom: 12px; }
+  .q-label { font-size: 0.7rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .q-text { font-size: 0.92rem; color: var(--text); margin-bottom: 10px; }
+  .q-options { display: flex; gap: 8px; flex-wrap: wrap; }
+  .q-opt { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); font-size: 0.78rem; color: var(--text-dim); }
+  .q-opt.recommended { border-color: var(--accent); color: var(--accent-light); background: rgba(108,92,231,0.1); }
+
+  /* Risk */
+  .risk-high { color: var(--red); font-weight: 600; }
+  .risk-med { color: var(--yellow); font-weight: 600; }
+  .risk-low { color: var(--green); font-weight: 600; }
+
+  /* Tier visual */
+  .tier-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin: 20px 0; }
+  .tier-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+  .tier-card .tier-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; margin-bottom: 8px; }
+  .tier-card .tier-modules { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tier-card .tier-mod { padding: 4px 12px; border-radius: 6px; font-size: 0.78rem; font-weight: 600; }
+  .tier-core .tier-label { color: var(--green); }
+  .tier-core .tier-mod { background: rgba(0,184,148,0.12); color: var(--green); }
+  .tier-core { border-color: rgba(0,184,148,0.3); }
+  .tier-diff .tier-label { color: var(--accent-light); }
+  .tier-diff .tier-mod { background: rgba(108,92,231,0.12); color: var(--accent-light); }
+  .tier-diff { border-color: rgba(108,92,231,0.3); }
+  .tier-bonus .tier-label { color: var(--yellow); }
+  .tier-bonus .tier-mod { background: rgba(253,203,110,0.12); color: var(--yellow); }
+
+  /* Code block */
+  .code { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.85rem; color: var(--text); overflow-x: auto; margin: 16px 0; line-height: 1.6; white-space: pre; }
+
+  /* Feedback box */
+  .feedback-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-top: 20px; }
+  .fb-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }
+  .fb-title { font-size: 0.8rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.5px; }
+  .fb-buttons { display: flex; gap: 6px; }
+  .fb-btn { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--text-dim); font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .fb-btn:hover { border-color: var(--text-dim); color: var(--text); }
+  .fb-btn.fb-ok.active { background: rgba(0,184,148,0.2); border-color: var(--green); color: var(--green); }
+  .fb-btn.fb-edit.active { background: rgba(253,203,110,0.2); border-color: var(--yellow); color: var(--yellow); }
+  .fb-btn.fb-reject.active { background: rgba(225,112,85,0.2); border-color: var(--red); color: var(--red); }
+  .fb-text { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; color: var(--text); font-size: 0.88rem; font-family: inherit; resize: vertical; min-height: 60px; line-height: 1.5; }
+  .fb-text::placeholder { color: var(--text-dim); opacity: 0.6; }
+  .fb-text:focus { outline: none; border-color: var(--accent); }
+  .fb-saved { font-size: 0.75rem; color: var(--green); font-weight: 600; margin-top: 8px; text-align: right; }
+
+  /* Mobile */
+  @media (max-width: 768px) {
+    body { line-height: 1.6; }
+    .hero { padding: 48px 20px 36px; }
+    .hero h1 { font-size: 2rem; }
+    .hero .subtitle { font-size: 1.05rem; margin-top: 8px; }
+    .nav { padding: 10px 16px; gap: 6px; display: flex; -webkit-overflow-scrolling: touch; }
+    .nav a { padding: 8px 14px; font-size: 0.78rem; border-radius: 20px; border-bottom: none; background: var(--surface); border: 1px solid var(--border); white-space: nowrap; flex-shrink: 0; }
+    .container { padding: 0 16px; }
+    .section { padding: 32px 0; }
+    .section h2 { font-size: 1.35rem; margin-bottom: 16px; }
+    .section p { font-size: 0.9rem; }
+    .card { padding: 16px; }
+    .suggestion, .decision { padding: 16px; margin: 20px 0; }
+    .suggestion p, .decision p { font-size: 0.88rem; }
+    table, thead, tbody, th, td, tr { display: block; width: 100%; white-space: normal; }
+    thead { display: none; }
+    tr { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+    td { border: none; padding: 4px 0; font-size: 0.88rem; display: flex; align-items: flex-start; gap: 8px; }
+    td::before { content: attr(data-label); font-size: 0.7rem; font-weight: 700; color: var(--accent-light); text-transform: uppercase; letter-spacing: 0.5px; min-width: 70px; flex-shrink: 0; padding-top: 2px; }
+    tr:nth-child(even) td { background: none; }
+    td:first-child { font-size: 0.95rem; font-weight: 600; padding-bottom: 8px; border-bottom: 1px solid var(--border); margin-bottom: 8px; display: block; }
+    td[data-label=""]::before { display: none; }
+    .comp-grid { grid-template-columns: 1fr !important; gap: 12px; }
+    .msg-grid { grid-template-columns: 1fr; gap: 8px; }
+    .flow { flex-direction: column; gap: 6px; }
+    .flow-arrow { transform: rotate(90deg); font-size: 1.2rem; }
+    .flow-box { min-width: unset; width: 100%; }
+    .question-list li { padding: 14px 16px; }
+    .q-options { gap: 6px; }
+    .tier-card .tier-modules { gap: 4px; }
+    .code { font-size: 0.75rem; padding: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>Magi<span>C</span></h1>
+  <div class="subtitle">Where AI becomes a Company</div>
+  <div class="version">V3 - FINAL REVIEW</div>
+  <div class="date">Cap nhat 16/03/2026</div>
+  <div style="margin-top:12px;font-size:0.8rem;color:var(--text-dim);position:relative;"><strong style="color:var(--accent-light);">C</strong> = Company &middot; Crew &middot; Claw</div>
+</div>
+
+<div class="nav">
+  <a href="#market">Thi truong</a>
+  <a href="#positioning">Dinh vi</a>
+  <a href="#roadmap">Roadmap</a>
+  <a href="#protocol">Protocol</a>
+  <a href="#entities">Entities</a>
+  <a href="#messages">Messages</a>
+  <a href="#modules">Modules</a>
+  <a href="#tech">Tech Stack</a>
+  <a href="#risks">Rui ro</a>
+  <a href="#decisions">Quyet dinh</a>
+</div>
+
+<div class="container">
+
+  <!-- 1. MARKET -->
+  <div class="section" id="market">
+    <div class="section-number">Hang muc 01 <span class="badge-updated">NGHIEN CUU SAU</span></div>
+    <h2>Nghien cuu thi truong</h2>
+
+    <div class="card card-new">
+      <h3>Thi truong AI Agent 2026 &mdash; So lieu thuc</h3>
+      <p><strong style="font-size:1.3rem;color:var(--accent-light);">$7.84B</strong> (2025) &rarr; <strong style="font-size:1.3rem;color:var(--green);">$52B</strong> (2030) &mdash; CAGR <strong>45.8%</strong></p>
+      <p style="margin-top:10px;">&bull; Multi-agent systems tang <strong>48.5% CAGR</strong> &mdash; segment tang nhanh nhat</p>
+      <p>&bull; 88% doanh nghiep da dung AI, <strong>62% dang thu nghiem AI agents</strong></p>
+      <p>&bull; 100% Fortune 500 co ke hoach adopt AI agents (khao sat CrewAI)</p>
+      <p>&bull; Gartner: <strong>90% B2B buying se qua AI agent vao 2028</strong> ($15T+)</p>
+      <p>&bull; 40% CIO doi hoi <strong>"Guardian Agents"</strong> de giam sat AI &mdash; chinh la Evaluator + Monitor cua MagiC</p>
+    </div>
+
+    <div class="card card-new">
+      <h3>5 Pain Points doanh nghiep (Azumo + Gartner 2026)</h3>
+      <p>&bull; <strong>Chi phi tang khong kiem soat</strong> &rarr; MagiC: <span class="tag tag-green">Cost Controller</span></p>
+      <p>&bull; <strong>Gia tri kinh doanh khong ro</strong> &rarr; MagiC: <span class="tag tag-green">Evaluator</span></p>
+      <p>&bull; <strong>Thieu governance / quyen han</strong> &rarr; MagiC: <span class="tag tag-green">Org Manager</span></p>
+      <p>&bull; <strong>Risk control yeu, khong audit</strong> &rarr; MagiC: <span class="tag tag-green">Monitor + Gateway</span></p>
+      <p>&bull; <strong>AI skills gap</strong> &rarr; MagiC: <span class="tag tag-green">Open protocol (de integrate)</span></p>
+      <p style="margin-top:10px;color:var(--green);font-weight:600;">MagiC giai quyet TRUC TIEP 5/5 pain points. Day la product-market fit.</p>
+    </div>
+
+    <p style="margin-top:24px;"><strong>Ban do doi thu (so lieu thuc, 3/2026):</strong></p>
+    <table>
+      <tr><th>Nen tang</th><th>Stars</th><th>Loai</th><th>MagiC khac gi?</th></tr>
+      <tr>
+        <td data-label=""><strong>LangChain</strong></td>
+        <td data-label="Stars">122k+</td>
+        <td data-label="Loai">SDK build agent</td>
+        <td data-label="Khac biet">Ho la SDK, ta la OS. Khac tang</td>
+      </tr>
+      <tr>
+        <td data-label=""><strong>AutoGen</strong> (MS)</td>
+        <td data-label="Stars">53k+</td>
+        <td data-label="Loai">Multi-agent</td>
+        <td data-label="Khac biet">Lock-in Azure/.NET. MagiC: any cloud, any lang</td>
+      </tr>
+      <tr>
+        <td data-label=""><strong>CrewAI</strong></td>
+        <td data-label="Stars">42k+</td>
+        <td data-label="Loai">Multi-agent</td>
+        <td data-label="Khac biet">Chi dung agent tu tao. MagiC: any agent join</td>
+      </tr>
+      <tr>
+        <td data-label=""><strong>Agno</strong></td>
+        <td data-label="Stars">36k+</td>
+        <td data-label="Loai">Multi-agent + control</td>
+        <td data-label="Khac biet">Gan nhat voi MagiC nhung van closed ecosystem</td>
+      </tr>
+      <tr>
+        <td data-label=""><strong>MetaGPT</strong></td>
+        <td data-label="Stars">62k+</td>
+        <td data-label="Loai">Multi-agent R&D</td>
+        <td data-label="Khac biet">Focus R&D. MagiC: production fleet management</td>
+      </tr>
+      <tr>
+        <td data-label=""><strong>OpenClaw</strong></td>
+        <td data-label="Stars">Viral</td>
+        <td data-label="Loai">Personal assistant</td>
+        <td data-label="Khac biet">DOI TAC. Worker join vao MagiC</td>
+      </tr>
+    </table>
+
+    <div class="card">
+      <h3>Ket luan: "Kubernetes moment" cho AI</h3>
+      <p><strong>Docker</strong> (build container) co truoc &rarr; <strong>Kubernetes</strong> (manage containers) co sau va thang lon hon.</p>
+      <p style="margin-top:8px;"><strong>LangChain/CrewAI</strong> (build agents) co truoc &rarr; <strong>MagiC</strong> (manage any agents) co sau.</p>
+      <p style="margin-top:8px;">Thi truong $52B, tang 45.8%/nam. 5 pain points ro rang. Khong ai lam "open fleet manager". <strong>Day la thoi diem.</strong></p>
+    </div>
+
+    <div class="card">
+      <h3>Ten: MagiC</h3>
+      <p><strong style="font-size:1.2rem;">Magi<span style="color:var(--accent-light);">C</span></strong> &mdash; <strong>C</strong> = Company &middot; Crew &middot; Claw</p>
+    </div>
+  </div>
+
+  <!-- 2. POSITIONING -->
+  <div class="section" id="positioning">
+    <div class="section-number">Hang muc 02 <span class="badge-updated">DA CAP NHAT</span></div>
+    <h2>Dinh vi san pham</h2>
+
+    <div class="card">
+      <h3>Dinh nghia</h3>
+      <p><strong>MagiC</strong> &mdash; Framework cho phep bat ky AI assistant nao (OpenClaw, custom bot, GPT agent...) gia nhap to chuc va lam viec theo yeu cau nguoi dung.</p>
+    </div>
+
+    <p><strong>Tagline chinh (branding):</strong> Choi chu voi "C" trong MagiC</p>
+    <table>
+      <tr><th>#</th><th>Tagline</th><th>Dung cho</th></tr>
+      <tr>
+        <td data-label="">#1</td>
+        <td data-label="Tagline"><strong>"Where AI becomes a Company"</strong></td>
+        <td data-label="Dung cho"><span class="tag tag-purple">Branding chinh</span></td>
+      </tr>
+      <tr>
+        <td data-label="">#2</td>
+        <td data-label="Tagline">"Your AI Crew, orchestrated"</td>
+        <td data-label="Dung cho"><span class="tag tag-blue">Alt branding</span></td>
+      </tr>
+      <tr>
+        <td data-label="">#3</td>
+        <td data-label="Tagline">"Command your AI workforce"</td>
+        <td data-label="Dung cho"><span class="tag tag-blue">Alt branding</span></td>
+      </tr>
+    </table>
+
+    <p style="margin-top:24px;"><strong>Tagline phu (landing page / GitHub):</strong> Thuc te, B2B SMB hieu ngay</p>
+    <table>
+      <tr><th>#</th><th>Tagline</th><th>Dung cho</th></tr>
+      <tr>
+        <td data-label="">#4</td>
+        <td data-label="Tagline"><strong>"Run your AI workforce like a real team"</strong></td>
+        <td data-label="Dung cho"><span class="tag tag-green">Landing page</span></td>
+      </tr>
+      <tr>
+        <td data-label="">#5</td>
+        <td data-label="Tagline">"Hire any AI. They all report to you."</td>
+        <td data-label="Dung cho"><span class="tag tag-green">Landing page</span></td>
+      </tr>
+      <tr>
+        <td data-label="">#6</td>
+        <td data-label="Tagline">"One framework. Any AI worker."</td>
+        <td data-label="Dung cho"><span class="tag tag-yellow">GitHub README</span></td>
+      </tr>
+      <tr>
+        <td data-label="">#7</td>
+        <td data-label="Tagline">"Don't build another AI. Manage the ones you have."</td>
+        <td data-label="Dung cho"><span class="tag tag-yellow">GitHub README</span></td>
+      </tr>
+      <tr>
+        <td data-label="">#8</td>
+        <td data-label="Tagline">"AI agents are everywhere. MagiC manages them all."</td>
+        <td data-label="Dung cho"><span class="tag tag-yellow">GitHub README</span></td>
+      </tr>
+      <tr>
+        <td data-label="">#9</td>
+        <td data-label="Tagline">"Make any AI work for you"</td>
+        <td data-label="Dung cho"><span class="tag tag-blue">General</span></td>
+      </tr>
+      <tr>
+        <td data-label="">#10</td>
+        <td data-label="Tagline">"Stop juggling AI tools. Start managing them."</td>
+        <td data-label="Dung cho"><span class="tag tag-green">Landing page</span></td>
+      </tr>
+    </table>
+
+    <div class="decision">
+      <div class="label">Can quyet dinh</div>
+      <p>Chon <strong>1 tagline branding</strong> (#1-3) va <strong>1-2 tagline phu</strong> (#4-10). De xuat: <strong>#1</strong> (branding) + <strong>#4</strong> (landing) + <strong>#7</strong> (GitHub).</p>
+    </div>
+  </div>
+
+  <!-- 3. ROADMAP -->
+  <div class="section" id="roadmap">
+    <div class="section-number">Hang muc 03</div>
+    <h2>Roadmap chien luoc</h2>
+
+    <div class="flow">
+      <div class="flow-box">
+        <div class="num">PHASE 0</div>
+        <div class="title">Bai toan thuc</div>
+        <div class="desc">CEO dieu phoi divisions</div>
+      </div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-box">
+        <div class="num">PHASE 1</div>
+        <div class="title">Framework MVP</div>
+        <div class="desc">9 modules + spec</div>
+      </div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-box">
+        <div class="num">PHASE 2</div>
+        <div class="title">Open-source</div>
+        <div class="desc">GitHub viral</div>
+      </div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-box">
+        <div class="num">PHASE 3</div>
+        <div class="title">SaaS + Marketplace</div>
+        <div class="desc">Monetize</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Mo hinh kinh doanh</h3>
+      <p><strong>Open-source core + SaaS.</strong> Framework mien phi (Apache 2.0), managed platform thu phi. Muc tieu: viral tren GitHub truoc, monetize sau.</p>
+    </div>
+
+    <div class="card">
+      <h3>Bai toan dau tien: CEO dieu phoi nhan su</h3>
+      <p>CEO co nhieu "division" (Marketing, Sales, Engineering, Finance...). Moi division co 1+ AI worker. CEO giao viec, theo doi, va dieu phoi cross-division qua Magic Claw.</p>
+    </div>
+  </div>
+
+  <!-- 4. PROTOCOL -->
+  <div class="section" id="protocol">
+    <div class="section-number">Hang muc 04</div>
+    <h2>MagiC Protocol (MCP&sup2;)</h2>
+    <p>Chuan hoa giao tiep Organization &harr; AI Workers. 5 nguyen tac (da them Human-in-the-loop va Fail-safe).</p>
+
+    <table>
+      <tr><th>Nguyen tac</th><th>Giai thich</th></tr>
+      <tr>
+        <td data-label=""><strong>Transport-agnostic</strong></td>
+        <td data-label="Chi tiet">HTTP, WebSocket, gRPC deu duoc</td>
+      </tr>
+      <tr>
+        <td data-label=""><strong>Capability-based</strong></td>
+        <td data-label="Chi tiet">Worker tu khai bao kha nang, Org giao viec theo capability</td>
+      </tr>
+      <tr>
+        <td data-label=""><strong>Contract-driven</strong></td>
+        <td data-label="Chi tiet">Moi task co contract: input, output, quality criteria</td>
+      </tr>
+      <tr>
+        <td data-label=""><strong>Human-in-the-loop</strong></td>
+        <td data-label="Chi tiet">Nguoi dung luon la "boss", approve/reject/redirect bat ky luc nao</td>
+      </tr>
+      <tr>
+        <td data-label=""><strong>Fail-safe</strong></td>
+        <td data-label="Chi tiet">Worker fail &rarr; retry/delegate/bao nguoi dung. Khong mat viec</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- 5. ENTITIES -->
+  <div class="section" id="entities">
+    <div class="section-number">Hang muc 05</div>
+    <h2>6 Entity cot loi</h2>
+    <p>Da them Workflow va Channel theo goi y.</p>
+
+    <div class="comp-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+      <div class="comp-card">
+        <h4>Organization</h4>
+        <p>To chuc tong</p>
+        <ul><li>Global policies</li><li>Knowledge hub</li><li>Cost budget</li><li>LLM proxy</li></ul>
+      </div>
+      <div class="comp-card">
+        <h4>Team</h4>
+        <p>Nhom workers</p>
+        <ul><li>Workers list</li><li>Team policies</li><li>Daily budget</li><li>Approval rules</li></ul>
+      </div>
+      <div class="comp-card">
+        <h4>Worker</h4>
+        <p>AI agent da join</p>
+        <ul><li>Capabilities</li><li>Endpoint/Auth</li><li>Rate limits</li><li>Status</li></ul>
+      </div>
+      <div class="comp-card">
+        <h4>Task</h4>
+        <p>Don vi cong viec</p>
+        <ul><li>I/O schema</li><li>Quality criteria</li><li>Routing</li><li>Timeout/Cost</li></ul>
+      </div>
+      <div class="comp-card">
+        <h4>Workflow</h4>
+        <p>Chuoi tasks</p>
+        <ul><li>Steps (DAG)</li><li>Parallel/Serial</li><li>Conditions</li><li>Error handling</li></ul>
+      </div>
+      <div class="comp-card">
+        <h4>Channel</h4>
+        <p>Kenh tuong tac</p>
+        <ul><li>Slack/Zalo/API</li><li>Input adapter</li><li>Output format</li><li>Auth config</li></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. MESSAGES -->
+  <div class="section" id="messages">
+    <div class="section-number">Hang muc 06</div>
+    <h2>Protocol Messages</h2>
+    <p>10 message types (da them task.accept/reject, worker.update_capabilities, org.broadcast).</p>
+
+    <div class="msg-grid">
+      <div class="msg-item"><div class="msg-icon lifecycle">W</div><div><div class="msg-name">worker.register</div><div class="msg-desc">Join to chuc</div></div></div>
+      <div class="msg-item"><div class="msg-icon lifecycle">W</div><div><div class="msg-name">worker.heartbeat</div><div class="msg-desc">Bao "van song"</div></div></div>
+      <div class="msg-item"><div class="msg-icon lifecycle">W</div><div><div class="msg-name">worker.deregister</div><div class="msg-desc">Roi to chuc</div></div></div>
+      <div class="msg-item"><div class="msg-icon lifecycle">W</div><div><div class="msg-name">worker.update_caps</div><div class="msg-desc">Cap nhat kha nang</div></div></div>
+      <div class="msg-item"><div class="msg-icon task">T</div><div><div class="msg-name">task.assign</div><div class="msg-desc">Giao viec</div></div></div>
+      <div class="msg-item"><div class="msg-icon task">T</div><div><div class="msg-name">task.accept/reject</div><div class="msg-desc">Nhan/tu choi viec</div></div></div>
+      <div class="msg-item"><div class="msg-icon task">T</div><div><div class="msg-name">task.progress</div><div class="msg-desc">Bao tien do</div></div></div>
+      <div class="msg-item"><div class="msg-icon task">T</div><div><div class="msg-name">task.complete/fail</div><div class="msg-desc">Tra ket qua</div></div></div>
+      <div class="msg-item"><div class="msg-icon collab">C</div><div><div class="msg-name">worker.delegate</div><div class="msg-desc">Nho worker khac</div></div></div>
+      <div class="msg-item"><div class="msg-icon collab">C</div><div><div class="msg-name">org.broadcast</div><div class="msg-desc">Thong bao toan org</div></div></div>
+    </div>
+  </div>
+
+  <!-- 7. MODULES -->
+  <div class="section" id="modules">
+    <div class="section-number">Hang muc 07 <span class="badge-updated">DA CAP NHAT</span></div>
+    <h2>9 Modules - Full MVP</h2>
+    <p>Theo feedback: lam TAT CA modules trong MVP de du "wow". Chia thanh 3 tier de sap xep thu tu build.</p>
+
+    <div class="tier-grid">
+      <div class="tier-card tier-core">
+        <div class="tier-label">TIER 1 &mdash; CORE (lam truoc, 1-2 tuan)</div>
+        <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:10px;">Khong co thi framework khong chay</p>
+        <div class="tier-modules">
+          <span class="tier-mod">Gateway</span>
+          <span class="tier-mod">Registry</span>
+          <span class="tier-mod">Router</span>
+          <span class="tier-mod">Monitor</span>
+        </div>
+      </div>
+      <div class="tier-card tier-diff">
+        <div class="tier-label">TIER 2 &mdash; DIFFERENTIATOR (lam sau, 2-3 tuan)</div>
+        <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:10px;">Day la cai tao "wow" va khac biet voi doi thu</p>
+        <div class="tier-modules">
+          <span class="tier-mod">Orchestrator</span>
+          <span class="tier-mod">Evaluator</span>
+          <span class="tier-mod">Cost Controller</span>
+          <span class="tier-mod">Org Manager</span>
+        </div>
+      </div>
+      <div class="tier-card tier-bonus">
+        <div class="tier-label">TIER 3 &mdash; BONUS (polish, 1 tuan)</div>
+        <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:10px;">Nice-to-have, tang gia tri cho open-source</p>
+        <div class="tier-modules">
+          <span class="tier-mod">Knowledge Hub</span>
+        </div>
+      </div>
+    </div>
+
+    <table>
+      <tr><th>Module</th><th>Vai tro</th><th>Tier</th></tr>
+      <tr><td data-label=""><strong>Gateway</strong></td><td data-label="Vai tro">API entry point, noi user gui request vao</td><td data-label=""><span class="tag tag-green">Core</span></td></tr>
+      <tr><td data-label=""><strong>Registry</strong></td><td data-label="Vai tro">Dang ky, discovery, health check workers</td><td data-label=""><span class="tag tag-green">Core</span></td></tr>
+      <tr><td data-label=""><strong>Router</strong></td><td data-label="Vai tro">Tim worker phu hop, giao viec thong minh</td><td data-label=""><span class="tag tag-green">Core</span></td></tr>
+      <tr><td data-label=""><strong>Monitor</strong></td><td data-label="Vai tro">Real-time logs, metrics, tracing</td><td data-label=""><span class="tag tag-green">Core</span></td></tr>
+      <tr><td data-label=""><strong>Orchestrator</strong></td><td data-label="Vai tro">Dieu phoi multi-worker, workflow execution</td><td data-label=""><span class="tag tag-purple">Diff</span></td></tr>
+      <tr><td data-label=""><strong>Evaluator</strong></td><td data-label="Vai tro">Danh gia chat luong output cua workers</td><td data-label=""><span class="tag tag-purple">Diff</span></td></tr>
+      <tr><td data-label=""><strong>Cost Controller</strong></td><td data-label="Vai tro">Budget per worker/team, alerts</td><td data-label=""><span class="tag tag-purple">Diff</span></td></tr>
+      <tr><td data-label=""><strong>Org Manager</strong></td><td data-label="Vai tro">Quan ly team, role, policy, RBAC</td><td data-label=""><span class="tag tag-purple">Diff</span></td></tr>
+      <tr><td data-label=""><strong>Knowledge Hub</strong></td><td data-label="Vai tro">KB dung chung across workers</td><td data-label=""><span class="tag tag-yellow">Bonus</span></td></tr>
+    </table>
+  </div>
+
+  <!-- 8. TECH STACK (NEW) -->
+  <div class="section" id="tech">
+    <div class="section-number">Hang muc 08 <span class="badge-updated">MOI</span></div>
+    <h2>Tech Stack</h2>
+    <p>Go core + Python SDK (theo feedback ve Go performance).</p>
+
+    <table>
+      <tr><th>Tieu chi</th><th>Python</th><th>Go</th></tr>
+      <tr><td data-label=""><strong>Performance</strong></td><td data-label="Python">Cham</td><td data-label="Go"><strong>Nhanh 10-100x</strong></td></tr>
+      <tr><td data-label=""><strong>Concurrency</strong></td><td data-label="Python">AsyncIO (ok)</td><td data-label="Go"><strong>Goroutines (tuyet voi)</strong></td></tr>
+      <tr><td data-label=""><strong>AI ecosystem</strong></td><td data-label="Python"><strong>Rat giau</strong></td><td data-label="Go">Ngheo</td></tr>
+      <tr><td data-label=""><strong>Infra precedent</strong></td><td data-label="Python">-</td><td data-label="Go"><strong>K8s, Docker, Traefik</strong></td></tr>
+    </table>
+
+    <div class="card card-new">
+      <h3>De xuat: Go core + Python SDK</h3>
+      <p>Framework core (Gateway, Router, Registry...) viet bang <strong>Go</strong> &mdash; nhanh, nhe, concurrent. Workers va AI logic dung <strong>Python SDK</strong> &mdash; noi co LangChain, LiteLLM, ecosystem AI. Giong cach Kubernetes lam (Go core + Python client).</p>
+    </div>
+
+    <div class="code">magic-claw/
++-- core/            # Go - 9 modules
++-- sdk/
+|   +-- python/      # pip install magic-claw
+|   +-- go/          # go get magic-claw
++-- protocol/        # Spec (language-agnostic)
++-- examples/        # Example workers
++-- docs/            # Spec + guides (cho GitHub viral)</div>
+
+    <div class="decision">
+      <div class="label">Can quyet dinh</div>
+      <p><strong>Go + Python</strong> hay <strong>chi Python</strong>? Go se nhanh hon nhung can hoc them. Python de bat dau hon nhung cham.</p>
+    </div>
+  </div>
+
+  <!-- 9. RISKS -->
+  <div class="section" id="risks">
+    <div class="section-number">Hang muc 09 <span class="badge-updated">DA CAP NHAT</span></div>
+    <h2>Rui ro va bien phap</h2>
+    <p>Da cap nhat: full 9 modules, Go learning curve, ten MagiC, muc tieu GitHub viral.</p>
+
+    <table>
+      <tr><th>Rui ro</th><th>Muc do</th><th>Bien phap</th></tr>
+      <tr>
+        <td data-label="">9 modules scope lon, keo dai</td>
+        <td data-label=""><span class="risk-high">CAO</span></td>
+        <td data-label="Giai phap">Chia 3 tier, ship tung tier. Tier 1 (core) xong la co the test</td>
+      </tr>
+      <tr>
+        <td data-label="">Go learning curve (neu chon Go)</td>
+        <td data-label=""><span class="risk-med">TB</span></td>
+        <td data-label="Giai phap">Go syntax don gian. 1-2 tuan la code duoc. Bat dau voi 1 module de lam quen</td>
+      </tr>
+      <tr>
+        <td data-label="">Protocol khong khop thuc te</td>
+        <td data-label=""><span class="risk-high">CAO</span></td>
+        <td data-label="Giai phap">Build song song voi bai toan CEO. Extract patterns tu code thuc</td>
+      </tr>
+      <tr>
+        <td data-label="">Branding MagiC chua du nhan biet</td>
+        <td data-label=""><span class="risk-low">THAP</span></td>
+        <td data-label="Giai phap">Da doi ten thanh MagiC. "C" = Company/Crew/Claw. Khac biet ro voi OpenClaw</td>
+      </tr>
+      <tr>
+        <td data-label="">MS Agent Framework canh tranh</td>
+        <td data-label=""><span class="risk-med">TB</span></td>
+        <td data-label="Giai phap">Ho lock-in Azure. Ta open-source, any-cloud, any-worker</td>
+      </tr>
+      <tr>
+        <td data-label="">Protocol fragmentation</td>
+        <td data-label=""><span class="risk-low">THAP</span></td>
+        <td data-label="Giai phap">Versioning ro rang, conformance test suite</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- 10. DECISIONS -->
+  <div class="section" id="decisions">
+    <div class="section-number">Hang muc 10 <span class="badge-updated">DA CAP NHAT</span></div>
+    <h2>Tong ket quyet dinh</h2>
+    <p>Tong hop tat ca quyet dinh. Nhung muc da chot duoc danh dau <span class="tag tag-green">DA CHOT</span>. Muc con lai can feedback cuoi.</p>
+
+    <ul class="question-list">
+      <li>
+        <div class="q-label"><span class="tag tag-green">DA CHOT</span> Ten san pham</div>
+        <div class="q-text"><strong style="font-size:1.3rem;">Magi<span style="color:var(--accent-light);">C</span></strong></div>
+        <div class="q-text" style="font-size:0.85rem;color:var(--text-dim);"><strong>C</strong> = Company &middot; Crew &middot; Claw</div>
+      </li>
+      <li>
+        <div class="q-label"><span class="tag tag-green">DA CHOT</span> Tech Stack</div>
+        <div class="q-text"><strong>Go core</strong> (9 modules) + <strong>Python SDK</strong> (cho workers/AI logic)</div>
+      </li>
+      <li>
+        <div class="q-label"><span class="tag tag-green">DA CHOT</span> MVP Scope</div>
+        <div class="q-text"><strong>Full 9 modules</strong> chia 3 tier: Core (4) &rarr; Diff (4) &rarr; Bonus (1)</div>
+      </li>
+      <li>
+        <div class="q-label"><span class="tag tag-green">DA CHOT</span> Bai toan dau tien</div>
+        <div class="q-text"><strong>CEO dieu phoi nhan su</strong> toan bo cac division trong cong ty</div>
+      </li>
+      <li>
+        <div class="q-label"><span class="tag tag-green">DA CHOT</span> Muc tieu</div>
+        <div class="q-text">Thiet ke spec chi tiet &rarr; viral open-source tren GitHub</div>
+      </li>
+      <li style="border-color: var(--yellow);">
+        <div class="q-label"><span class="tag tag-yellow">CAN CHON</span> Tagline branding (#1-3)</div>
+        <div class="q-text">Chon 1 trong 3 tagline choi chu voi "C":</div>
+        <div class="q-options">
+          <span class="q-opt recommended">#1 Where AI becomes a Company</span>
+          <span class="q-opt">#2 Your AI Crew, orchestrated</span>
+          <span class="q-opt">#3 Command your AI workforce</span>
+        </div>
+      </li>
+      <li style="border-color: var(--yellow);">
+        <div class="q-label"><span class="tag tag-yellow">CAN CHON</span> Tagline phu (landing/GitHub)</div>
+        <div class="q-text">Chon 1-2 tagline thuc te cho trang web va GitHub:</div>
+        <div class="q-options">
+          <span class="q-opt recommended">#4 Run your AI workforce like a real team</span>
+          <span class="q-opt">#5 Hire any AI. They all report to you</span>
+          <span class="q-opt">#6 One framework. Any AI worker</span>
+          <span class="q-opt recommended">#7 Don't build another AI. Manage the ones you have</span>
+          <span class="q-opt">#8 AI agents are everywhere. MagiC manages them all</span>
+          <span class="q-opt">#9 Make any AI work for you</span>
+          <span class="q-opt">#10 Stop juggling AI tools. Start managing them</span>
+        </div>
+      </li>
+    </ul>
+
+    <div class="suggestion">
+      <div class="label">Buoc tiep theo</div>
+      <p>Chon tagline &rarr; toi se <strong>viet spec chi tiet day du</strong> (design doc chuyen nghiep) &rarr; commit len git &rarr; bat dau implementation plan. Day la round review cuoi truoc khi chuyen sang thiet ke.</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- Footer -->
+<div style="text-align:center; padding:60px 40px; color:var(--text-dim); font-size:0.8rem; border-top:1px solid var(--border);">
+  MagiC Brainstorming Review v3 &mdash; 16/03/2026<br>
+  <span class="badge-updated" style="margin-top:8px;">Final review - Round 3</span>
+  <div style="margin-top:16px;">
+    <button onclick="submitAll()" style="background:var(--accent);color:white;border:none;padding:10px 24px;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;">
+      Gui tat ca feedback
+    </button>
+  </div>
+</div>
+
+<script>
+const SECTIONS = ['market','positioning','roadmap','protocol','entities','messages','modules','tech','risks','decisions'];
+
+document.addEventListener('DOMContentLoaded', () => {
+  SECTIONS.forEach(id => {
+    const section = document.getElementById(id);
+    if (!section) return;
+    const fb = document.createElement('div');
+    fb.className = 'feedback-box';
+    fb.id = 'fb-' + id;
+    fb.innerHTML = `
+      <div class="fb-header">
+        <span class="fb-title">Feedback</span>
+        <div class="fb-buttons">
+          <button class="fb-btn fb-ok" data-status="ok" onclick="setStatus('${id}','ok',this)">OK</button>
+          <button class="fb-btn fb-edit" data-status="edit" onclick="setStatus('${id}','edit',this)">Can sua</button>
+          <button class="fb-btn fb-reject" data-status="reject" onclick="setStatus('${id}','reject',this)">Reject</button>
+        </div>
+      </div>
+      <textarea class="fb-text" id="text-${id}" placeholder="Ghi chu / tra loi cau hoi..." rows="3"></textarea>
+      <div class="fb-saved" id="saved-${id}" style="display:none;">Da luu!</div>
+    `;
+    section.appendChild(fb);
+  });
+  loadFeedback();
+});
+
+function setStatus(sid, status, btn) {
+  document.getElementById('fb-'+sid).querySelectorAll('.fb-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  saveFeedback(sid);
+}
+
+function saveFeedback(sid) {
+  const box = document.getElementById('fb-'+sid);
+  const ab = box.querySelector('.fb-btn.active');
+  fetch('/api/feedback', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({section:sid, status: ab?ab.dataset.status:'pending', comment: document.getElementById('text-'+sid).value})
+  }).then(()=>{
+    const s=document.getElementById('saved-'+sid); s.style.display='block'; setTimeout(()=>s.style.display='none',2000);
+  });
+}
+
+function submitAll() {
+  let done=0;
+  SECTIONS.forEach(id=>{
+    const box=document.getElementById('fb-'+id);
+    if(box.querySelector('.fb-btn.active')||document.getElementById('text-'+id).value){saveFeedback(id);done++;}
+  });
+  alert('Da luu '+done+'/'+SECTIONS.length+' hang muc.\nQuay lai terminal va noi "doc feedback" de tiep tuc.');
+}
+
+function loadFeedback() {
+  fetch('/api/feedback').then(r=>r.json()).then(data=>{
+    Object.entries(data).forEach(([sid,fb])=>{
+      const box=document.getElementById('fb-'+sid);
+      if(!box)return;
+      if(fb.status){const btn=box.querySelector(`.fb-btn[data-status="${fb.status}"]`);if(btn)btn.classList.add('active');}
+      if(fb.comment)document.getElementById('text-'+sid).value=fb.comment;
+    });
+  }).catch(()=>{});
+}
+
+document.addEventListener('focusout',e=>{
+  if(e.target.classList.contains('fb-text')){
+    const id=e.target.id.replace('text-','');
+    const box=document.getElementById('fb-'+id);
+    if(box.querySelector('.fb-btn.active')||e.target.value)saveFeedback(id);
+  }
+});
+</script>
+
+</body>
+</html>

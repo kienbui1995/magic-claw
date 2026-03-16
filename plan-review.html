@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MagiC — Plan 1 Review</title>
+<style>
+  :root {
+    --bg:#0a0a0f;--surface:#12121a;--surface-2:#1a1a2e;--border:#2a2a3e;
+    --accent:#6c5ce7;--accent-light:#a29bfe;--green:#00b894;--yellow:#fdcb6e;
+    --red:#e17055;--blue:#74b9ff;--text:#e0e0e8;--text-dim:#8888a0;--text-bright:#fff;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7;}
+
+  .hero{background:linear-gradient(135deg,#0f3460,#16213e,#1a1a2e);padding:48px 20px 36px;text-align:center;border-bottom:1px solid var(--border);}
+  .hero h1{font-size:2rem;font-weight:800;color:var(--text-bright);}
+  .hero h1 span{color:var(--accent-light);}
+  .hero .sub{font-size:0.95rem;color:var(--text-dim);margin-top:6px;}
+  .hero .tag{display:inline-block;background:var(--accent);color:#fff;padding:2px 10px;border-radius:10px;font-size:0.68rem;font-weight:700;margin-top:10px;}
+
+  .nav{position:sticky;top:0;background:rgba(10,10,15,0.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:10px 16px;z-index:100;overflow-x:auto;white-space:nowrap;display:flex;gap:6px;-webkit-overflow-scrolling:touch;}
+  .nav a{display:inline-block;padding:7px 12px;color:var(--text-dim);text-decoration:none;font-size:0.72rem;font-weight:500;border-radius:20px;background:var(--surface);border:1px solid var(--border);white-space:nowrap;flex-shrink:0;}
+  .nav a:hover{color:var(--accent-light);border-color:var(--accent);}
+
+  .container{max-width:900px;margin:0 auto;padding:0 20px;}
+
+  .section{padding:36px 0;border-bottom:1px solid var(--border);}
+  .section:last-child{border-bottom:none;}
+  .chunk-label{font-size:0.68rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:3px;margin-bottom:4px;}
+  .section h2{font-size:1.4rem;font-weight:700;color:var(--text-bright);margin-bottom:16px;}
+  .section h3{font-size:1.05rem;font-weight:600;color:var(--text-bright);margin:16px 0 8px;}
+  .section p{margin-bottom:10px;font-size:0.88rem;}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin:12px 0;}
+  .card h4{font-size:0.95rem;color:var(--text-bright);margin-bottom:6px;font-weight:600;}
+  .card p{font-size:0.85rem;color:var(--text-dim);}
+
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:0.82rem;}
+  th{background:var(--surface-2);color:var(--accent-light);font-weight:600;text-align:left;padding:8px 12px;border:1px solid var(--border);font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;}
+  td{padding:8px 12px;border:1px solid var(--border);color:var(--text);vertical-align:top;}
+  tr:nth-child(even) td{background:rgba(26,26,46,0.3);}
+
+  .tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:0.68rem;font-weight:600;margin:1px;}
+  .tag-green{background:rgba(0,184,148,0.15);color:var(--green);}
+  .tag-purple{background:rgba(108,92,231,0.15);color:var(--accent-light);}
+  .tag-yellow{background:rgba(253,203,110,0.15);color:var(--yellow);}
+  .tag-red{background:rgba(225,112,85,0.15);color:var(--red);}
+  .tag-blue{background:rgba(116,185,255,0.15);color:var(--blue);}
+
+  .code{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:'JetBrains Mono','Fira Code',monospace;font-size:0.72rem;color:var(--text);overflow-x:auto;margin:10px 0;line-height:1.5;white-space:pre;}
+
+  .steps{list-style:none;padding:0;margin:10px 0;}
+  .steps li{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:6px;font-size:0.82rem;display:flex;align-items:flex-start;gap:8px;}
+  .step-num{background:var(--surface-2);border:1px solid var(--border);width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:0.68rem;font-weight:700;color:var(--accent-light);flex-shrink:0;}
+  .step-text{flex:1;}
+  .step-text strong{color:var(--text-bright);}
+
+  .files{margin:8px 0;}
+  .file{display:inline-block;padding:2px 8px;border-radius:4px;font-size:0.7rem;font-family:monospace;margin:2px;}
+  .file-create{background:rgba(0,184,148,0.1);color:var(--green);border:1px solid rgba(0,184,148,0.2);}
+  .file-test{background:rgba(108,92,231,0.1);color:var(--accent-light);border:1px solid rgba(108,92,231,0.2);}
+
+  .fb{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:16px;}
+  .fb-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px;}
+  .fb-title{font-size:0.72rem;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:1.5px;}
+  .fb-btns{display:flex;gap:4px;}
+  .fb-btn{padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-size:0.72rem;font-weight:600;cursor:pointer;transition:all 0.2s;}
+  .fb-btn:hover{border-color:var(--text-dim);color:var(--text);}
+  .fb-btn.ok.active{background:rgba(0,184,148,0.2);border-color:var(--green);color:var(--green);}
+  .fb-btn.edit.active{background:rgba(253,203,110,0.2);border-color:var(--yellow);color:var(--yellow);}
+  .fb-btn.reject.active{background:rgba(225,112,85,0.2);border-color:var(--red);color:var(--red);}
+  .fb-text{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:0.82rem;font-family:inherit;resize:vertical;min-height:44px;line-height:1.5;}
+  .fb-text::placeholder{color:var(--text-dim);opacity:0.5;}
+  .fb-text:focus{outline:none;border-color:var(--accent);}
+  .fb-saved{font-size:0.68rem;color:var(--green);font-weight:600;margin-top:4px;text-align:right;display:none;}
+
+  @media(max-width:768px){
+    .hero{padding:36px 16px 28px;} .hero h1{font-size:1.6rem;}
+    .container{padding:0 14px;}
+    .section{padding:24px 0;} .section h2{font-size:1.2rem;}
+    table,thead,tbody,th,td,tr{display:block;width:100%;white-space:normal;}
+    thead{display:none;} tr{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;}
+    td{border:none;padding:3px 0;font-size:0.82rem;display:flex;align-items:flex-start;gap:6px;}
+    td::before{content:attr(data-label);font-size:0.65rem;font-weight:700;color:var(--accent-light);text-transform:uppercase;min-width:60px;flex-shrink:0;padding-top:2px;}
+    td[data-label=""]::before{display:none;}
+    td:first-child{font-weight:600;padding-bottom:4px;border-bottom:1px solid var(--border);margin-bottom:4px;display:block;}
+    tr:nth-child(even) td{background:none;}
+    .code{font-size:0.65rem;padding:10px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>Magi<span>C</span> Plan 1</h1>
+  <div class="sub">Foundation + Core Modules</div>
+  <div class="tag">12 TASKS &middot; 3 CHUNKS</div>
+</div>
+
+<div class="nav">
+  <a href="#overview">Tong quan</a>
+  <a href="#t1">T1 Scaffold</a>
+  <a href="#t2">T2 Entities</a>
+  <a href="#t3">T3 Messages</a>
+  <a href="#t4">T4 Store</a>
+  <a href="#t5">T5 Events</a>
+  <a href="#t6">T6 Registry</a>
+  <a href="#t7">T7 Router</a>
+  <a href="#t8">T8 Monitor</a>
+  <a href="#t9">T9 Gateway</a>
+  <a href="#t10">T10 SDK</a>
+  <a href="#t11">T11 Hello</a>
+  <a href="#t12">T12 Final</a>
+</div>
+
+<div class="container">
+
+<!-- Overview -->
+<div class="section" id="overview">
+  <div class="chunk-label">Tong quan</div>
+  <h2>Plan 1: Foundation + Core</h2>
+
+  <div class="card">
+    <h4>Muc tieu</h4>
+    <p>Build MagiC server chay duoc: register AI workers, route tasks, monitor activity. Kem Python SDK va hello-world example.</p>
+  </div>
+
+  <div class="card">
+    <h4>Ket qua sau khi xong</h4>
+    <p>&bull; MagiC server (Go) tren port 8080</p>
+    <p>&bull; 4 core modules: Gateway, Registry, Router, Monitor</p>
+    <p>&bull; MCP&sup2; protocol types + event bus + in-memory store</p>
+    <p>&bull; Python SDK: <code>pip install magic-claw</code></p>
+    <p>&bull; Hello Worker example (10 dong Python)</p>
+  </div>
+
+  <table>
+    <tr><th>Chunk</th><th>Tasks</th><th>Noi dung</th><th>Thoi gian</th></tr>
+    <tr>
+      <td data-label=""><span class="tag tag-green">Chunk 1</span></td>
+      <td data-label="Tasks">Task 1-5</td>
+      <td data-label="Noi dung">Go scaffold, Protocol types, Store, Event bus</td>
+      <td data-label="TG">~2h</td>
+    </tr>
+    <tr>
+      <td data-label=""><span class="tag tag-purple">Chunk 2</span></td>
+      <td data-label="Tasks">Task 6-9</td>
+      <td data-label="Noi dung">Registry, Router, Monitor, Gateway + wire up</td>
+      <td data-label="TG">~3h</td>
+    </tr>
+    <tr>
+      <td data-label=""><span class="tag tag-yellow">Chunk 3</span></td>
+      <td data-label="Tasks">Task 10-12</td>
+      <td data-label="Noi dung">Python SDK, Hello Worker, Final tests</td>
+      <td data-label="TG">~1.5h</td>
+    </tr>
+  </table>
+
+  <h3>File Map</h3>
+  <div class="code">magic-claw/
++-- core/
+|   +-- cmd/magic/main.go           # CLI entrypoint
+|   +-- internal/
+|   |   +-- protocol/               # Entity + message types
+|   |   +-- store/                   # Store interface + memory impl
+|   |   +-- events/                  # Event bus (pub/sub)
+|   |   +-- gateway/                 # HTTP server + handlers
+|   |   +-- registry/                # Worker registration
+|   |   +-- router/                  # Task routing engine
+|   |   +-- monitor/                 # Logging + metrics
+|   +-- go.mod
++-- sdk/python/                      # Python SDK
+|   +-- magic_claw/                  # Worker, Client, Protocol
+|   +-- tests/
++-- examples/hello-worker/           # 10-line example
++-- Makefile</div>
+</div>
+
+<!-- CHUNK 1 -->
+<!-- Task 1 -->
+<div class="section" id="t1">
+  <div class="chunk-label">Chunk 1 &mdash; Foundation</div>
+  <h2>Task 1: Go Project Scaffold</h2>
+  <div class="files">
+    <span class="file file-create">core/go.mod</span>
+    <span class="file file-create">core/cmd/magic/main.go</span>
+    <span class="file file-create">Makefile</span>
+    <span class="file file-create">.gitignore</span>
+  </div>
+  <ul class="steps">
+    <li><div class="step-num">1</div><div class="step-text"><strong>Init Go module:</strong> <code>go mod init github.com/kienbm/magic-claw/core</code></div></li>
+    <li><div class="step-num">2</div><div class="step-text"><strong>Create main.go:</strong> CLI voi "serve" command (placeholder)</div></li>
+    <li><div class="step-num">3</div><div class="step-text"><strong>Create Makefile:</strong> build, test, run, dev, clean</div></li>
+    <li><div class="step-num">4</div><div class="step-text"><strong>Create .gitignore:</strong> bin/, .env, __pycache__, etc.</div></li>
+    <li><div class="step-num">5</div><div class="step-text"><strong>Verify:</strong> <code>make build</code> &rarr; binary tai bin/magic</div></li>
+    <li><div class="step-num">6</div><div class="step-text"><strong>Commit:</strong> "feat: initialize Go project scaffold"</div></li>
+  </ul>
+</div>
+
+<!-- Task 2 -->
+<div class="section" id="t2">
+  <div class="chunk-label">Chunk 1</div>
+  <h2>Task 2: Protocol Types — Entities</h2>
+  <div class="files">
+    <span class="file file-create">core/internal/protocol/types.go</span>
+    <span class="file file-test">core/internal/protocol/types_test.go</span>
+  </div>
+  <p>Dinh nghia cac entity: Worker, Task, Team, Capability, Contract, Endpoint, etc.</p>
+  <ul class="steps">
+    <li><div class="step-num">1</div><div class="step-text"><strong>Write test:</strong> TestWorkerSerialization, TestTaskSerialization, TestGenerateID</div></li>
+    <li><div class="step-num">2</div><div class="step-text"><strong>Run test &rarr; FAIL</strong></div></li>
+    <li><div class="step-num">3</div><div class="step-text"><strong>Implement:</strong> Go structs voi JSON tags, GenerateID() func</div></li>
+    <li><div class="step-num">4</div><div class="step-text"><strong>Run test &rarr; PASS</strong> (3 tests)</div></li>
+    <li><div class="step-num">5</div><div class="step-text"><strong>Commit:</strong> "feat(protocol): add core entity types"</div></li>
+  </ul>
+  <div class="card">
+    <h4>Entities trong task nay</h4>
+    <p>Worker, Capability, Endpoint, EndpointAuth, WorkerLimits, Task, Contract, QualityCriterion, RetryPolicy, RoutingConfig, TaskContext, TaskError, Team</p>
+  </div>
+</div>
+
+<!-- Task 3 -->
+<div class="section" id="t3">
+  <div class="chunk-label">Chunk 1</div>
+  <h2>Task 3: Protocol Types — MCP&sup2; Messages</h2>
+  <div class="files">
+    <span class="file file-create">core/internal/protocol/messages.go</span>
+    <span class="file file-test">types_test.go (them test)</span>
+  </div>
+  <p>14 message types: worker.register, task.assign, worker.delegate, etc.</p>
+  <ul class="steps">
+    <li><div class="step-num">1</div><div class="step-text"><strong>Write test:</strong> TestMessageSerialization, TestNewMessage</div></li>
+    <li><div class="step-num">2</div><div class="step-text"><strong>Run test &rarr; FAIL</strong></div></li>
+    <li><div class="step-num">3</div><div class="step-text"><strong>Implement:</strong> Message envelope, 14 msg constants, payload structs (Register, TaskAssign, TaskComplete, Heartbeat, Delegate...)</div></li>
+    <li><div class="step-num">4</div><div class="step-text"><strong>Run test &rarr; PASS</strong> (5 tests total)</div></li>
+    <li><div class="step-num">5</div><div class="step-text"><strong>Commit:</strong> "feat(protocol): add MCP&sup2; message types"</div></li>
+  </ul>
+</div>
+
+<!-- Task 4 -->
+<div class="section" id="t4">
+  <div class="chunk-label">Chunk 1</div>
+  <h2>Task 4: In-Memory Store</h2>
+  <div class="files">
+    <span class="file file-create">core/internal/store/store.go</span>
+    <span class="file file-create">core/internal/store/memory.go</span>
+    <span class="file file-test">core/internal/store/memory_test.go</span>
+  </div>
+  <p>Store interface + thread-safe in-memory implementation. CRUD cho Workers va Tasks.</p>
+  <ul class="steps">
+    <li><div class="step-num">1</div><div class="step-text"><strong>Write test:</strong> Workers CRUD (Add, Get, List, FindByCapability, Remove) + Tasks CRUD</div></li>
+    <li><div class="step-num">2</div><div class="step-text"><strong>Run test &rarr; FAIL</strong></div></li>
+    <li><div class="step-num">3</div><div class="step-text"><strong>Implement:</strong> Store interface, MemoryStore voi sync.RWMutex</div></li>
+    <li><div class="step-num">4</div><div class="step-text"><strong>Run test &rarr; PASS</strong></div></li>
+    <li><div class="step-num">5</div><div class="step-text"><strong>Commit:</strong> "feat(store): add Store interface and in-memory impl"</div></li>
+  </ul>
+</div>
+
+<!-- Task 5 -->
+<div class="section" id="t5">
+  <div class="chunk-label">Chunk 1</div>
+  <h2>Task 5: Event Bus</h2>
+  <div class="files">
+    <span class="file file-create">core/internal/events/bus.go</span>
+    <span class="file file-test">core/internal/events/bus_test.go</span>
+  </div>
+  <p>Pub/sub event bus. Modules publish events, Monitor subscribes. Wildcard "*" support.</p>
+  <ul class="steps">
+    <li><div class="step-num">1</div><div class="step-text"><strong>Write test:</strong> TestPubSub (specific event), TestWildcard ("*" catches all)</div></li>
+    <li><div class="step-num">2</div><div class="step-text"><strong>Run test &rarr; FAIL</strong></div></li>
+    <li><div class="step-num">3</div><div class="step-text"><strong>Implement:</strong> Bus struct, Subscribe(), Publish() voi async delivery (goroutines)</div></li>
+    <li><div class="step-num">4</div><div class="step-text"><strong>Run test &rarr; PASS</strong></div></li>
+    <li><div class="step-num">5</div><div class="step-text"><strong>Commit:</strong> "feat(events): add event bus with pub/sub"</div></li>
+  </ul>
+</div>
+
+<!-- CHUNK 2 -->
+<!-- Task 6 -->
+<div class="section" id="t6">
+  <div class="chunk-label">Chunk 2 &mdash; Core Modules</div>
+  <h2>Task 6: Registry Module</h2>
+  <div class="files">
+    <span class="file file-create">core/internal/registry/registry.go</span>
+    <span class="file file-create">core/internal/registry/health.go</span>
+    <span class="file file-test">core/internal/registry/registry_test.go</span>
+  </div>
+  <p>Worker registration, heartbeat tracking, health check (mark offline after timeout).</p>
+  <ul class="steps">
+    <li><div class="step-num">1</div><div class="step-text"><strong>Write test:</strong> Register, Heartbeat, Deregister, FindByCapability (4 tests)</div></li>
+    <li><div class="step-num">2</div><div class="step-text"><strong>Run test &rarr; FAIL</strong></div></li>
+    <li><div class="step-num">3</div><div class="step-text"><strong>Implement:</strong> Registry struct, Register() tao Worker + publish event, Heartbeat() cap nhat, health.go goroutine check timeout</div></li>
+    <li><div class="step-num">4</div><div class="step-text"><strong>Run test &rarr; PASS</strong> (4 tests)</div></li>
+    <li><div class="step-num">5</div><div class="step-text"><strong>Commit:</strong> "feat(registry): add worker registration + health check"</div></li>
+  </ul>
+</div>
+
+<!-- Task 7 -->
+<div class="section" id="t7">
+  <div class="chunk-label">Chunk 2</div>
+  <h2>Task 7: Router Module</h2>
+  <div class="files">
+    <span class="file file-create">core/internal/router/router.go</span>
+    <span class="file file-create">core/internal/router/strategy.go</span>
+    <span class="file file-test">core/internal/router/router_test.go</span>
+  </div>
+  <p>Tim worker phu hop nhat cho task. Strategies: best_match, cheapest, specific.</p>
+  <ul class="steps">
+    <li><div class="step-num">1</div><div class="step-text"><strong>Write test:</strong> BestMatch (chon worker available nhat), NoCapableWorker (error), Cheapest (chon re nhat)</div></li>
+    <li><div class="step-num">2</div><div class="step-text"><strong>Run test &rarr; FAIL</strong></div></li>
+    <li><div class="step-num">3</div><div class="step-text"><strong>Implement:</strong> filterByCapability, scoreBestMatch (availability), findCheapest, RouteTask() voi strategy switch</div></li>
+    <li><div class="step-num">4</div><div class="step-text"><strong>Run test &rarr; PASS</strong> (3 tests)</div></li>
+    <li><div class="step-num">5</div><div class="step-text"><strong>Commit:</strong> "feat(router): add task routing with strategies"</div></li>
+  </ul>
+  <div class="card">
+    <h4>Scoring formula</h4>
+    <div class="code">score = capability_match * 0.4
+     + availability      * 0.3
+     + perf_history       * 0.2
+     + cost_efficiency    * 0.1</div>
+  </div>
+</div>
+
+<!-- Task 8 -->
+<div class="section" id="t8">
+  <div class="chunk-label">Chunk 2</div>
+  <h2>Task 8: Monitor Module</h2>
+  <div class="files">
+    <span class="file file-create">core/internal/monitor/monitor.go</span>
+    <span class="file file-create">core/internal/monitor/logger.go</span>
+    <span class="file file-test">core/internal/monitor/monitor_test.go</span>
+  </div>
+  <p>Subscribe "*" events, structured JSON logging, stats tracking (atomic counters).</p>
+  <ul class="steps">
+    <li><div class="step-num">1</div><div class="step-text"><strong>Write test:</strong> CapturesEvents (count events), WritesJSON (valid JSON output)</div></li>
+    <li><div class="step-num">2</div><div class="step-text"><strong>Run test &rarr; FAIL</strong></div></li>
+    <li><div class="step-num">3</div><div class="step-text"><strong>Implement:</strong> Monitor.Start() subscribe "*", Stats() return atomic counters, logger.go writeLogEntry JSON</div></li>
+    <li><div class="step-num">4</div><div class="step-text"><strong>Run test &rarr; PASS</strong></div></li>
+    <li><div class="step-num">5</div><div class="step-text"><strong>Commit:</strong> "feat(monitor): add event monitoring + JSON logging"</div></li>
+  </ul>
+</div>
+
+<!-- Task 9 -->
+<div class="section" id="t9">
+  <div class="chunk-label">Chunk 2</div>
+  <h2>Task 9: Gateway — HTTP Server</h2>
+  <div class="files">
+    <span class="file file-create">core/internal/gateway/gateway.go</span>
+    <span class="file file-create">core/internal/gateway/handlers.go</span>
+    <span class="file file-create">core/internal/gateway/middleware.go</span>
+    <span class="file file-test">core/internal/gateway/gateway_test.go</span>
+  </div>
+  <p>HTTP server, REST API, wire tat ca modules lai, update main.go.</p>
+
+  <h3>API Endpoints</h3>
+  <table>
+    <tr><th>Method</th><th>Path</th><th>Mo ta</th></tr>
+    <tr><td data-label="">GET</td><td data-label="Path">/health</td><td data-label="Mo ta">Health check</td></tr>
+    <tr><td data-label="">POST</td><td data-label="Path">/api/v1/workers/register</td><td data-label="Mo ta">Register worker</td></tr>
+    <tr><td data-label="">POST</td><td data-label="Path">/api/v1/workers/heartbeat</td><td data-label="Mo ta">Worker heartbeat</td></tr>
+    <tr><td data-label="">GET</td><td data-label="Path">/api/v1/workers</td><td data-label="Mo ta">List workers</td></tr>
+    <tr><td data-label="">POST</td><td data-label="Path">/api/v1/tasks</td><td data-label="Mo ta">Submit task</td></tr>
+    <tr><td data-label="">GET</td><td data-label="Path">/api/v1/metrics</td><td data-label="Mo ta">View stats</td></tr>
+  </table>
+
+  <ul class="steps">
+    <li><div class="step-num">1</div><div class="step-text"><strong>Write test:</strong> Health (200), RegisterWorker (201 + ID), ListWorkers, SubmitTask (201 + assigned)</div></li>
+    <li><div class="step-num">2</div><div class="step-text"><strong>Run test &rarr; FAIL</strong></div></li>
+    <li><div class="step-num">3</div><div class="step-text"><strong>Implement:</strong> middleware (requestID, CORS), handlers (6 endpoints), gateway.go (mux + middleware chain)</div></li>
+    <li><div class="step-num">4</div><div class="step-text"><strong>Run test &rarr; PASS</strong> (4 tests)</div></li>
+    <li><div class="step-num">5</div><div class="step-text"><strong>Wire up main.go:</strong> Init store, bus, registry, router, monitor, gateway &rarr; ListenAndServe</div></li>
+    <li><div class="step-num">6</div><div class="step-text"><strong>Run ALL tests:</strong> <code>go test ./... -v</code> &rarr; ALL PASS</div></li>
+    <li><div class="step-num">7</div><div class="step-text"><strong>Manual test:</strong> make run, curl /health, curl register, curl workers</div></li>
+    <li><div class="step-num">8</div><div class="step-text"><strong>Commit:</strong> "feat(gateway): add HTTP server + wire all modules"</div></li>
+  </ul>
+</div>
+
+<!-- CHUNK 3 -->
+<!-- Task 10 -->
+<div class="section" id="t10">
+  <div class="chunk-label">Chunk 3 &mdash; Python SDK</div>
+  <h2>Task 10: Python SDK</h2>
+  <div class="files">
+    <span class="file file-create">sdk/python/magic_claw/__init__.py</span>
+    <span class="file file-create">sdk/python/magic_claw/worker.py</span>
+    <span class="file file-create">sdk/python/magic_claw/client.py</span>
+    <span class="file file-create">sdk/python/magic_claw/protocol.py</span>
+    <span class="file file-create">sdk/python/magic_claw/decorators.py</span>
+    <span class="file file-create">sdk/python/pyproject.toml</span>
+    <span class="file file-test">sdk/python/tests/test_worker.py</span>
+  </div>
+  <p>Worker class voi @capability decorator, HTTP client, auto-heartbeat.</p>
+  <ul class="steps">
+    <li><div class="step-num">1</div><div class="step-text"><strong>Create pyproject.toml</strong> (hatchling, httpx dep)</div></li>
+    <li><div class="step-num">2</div><div class="step-text"><strong>Implement protocol.py:</strong> Capability, RegisterPayload dataclasses</div></li>
+    <li><div class="step-num">3</div><div class="step-text"><strong>Implement client.py:</strong> MagiCClient (register_worker, heartbeat, health)</div></li>
+    <li><div class="step-num">4</div><div class="step-text"><strong>Implement decorators.py:</strong> @capability decorator</div></li>
+    <li><div class="step-num">5</div><div class="step-text"><strong>Implement worker.py:</strong> Worker class (register, serve, handle_task, heartbeat thread)</div></li>
+    <li><div class="step-num">6</div><div class="step-text"><strong>Write test:</strong> capability registration, handle_task, unknown task error</div></li>
+    <li><div class="step-num">7</div><div class="step-text"><strong>Run pytest &rarr; PASS</strong> (3 tests)</div></li>
+    <li><div class="step-num">8</div><div class="step-text"><strong>Commit:</strong> "feat(sdk): add Python SDK"</div></li>
+  </ul>
+  <div class="card">
+    <h4>SDK usage</h4>
+    <div class="code">from magic_claw import Worker
+
+w = Worker(name="MyBot", endpoint="http://localhost:9000")
+
+@w.capability("greeting")
+def greet(name: str) -> str:
+    return f"Hello, {name}!"
+
+w.register("http://localhost:8080")
+w.serve()</div>
+  </div>
+</div>
+
+<!-- Task 11 -->
+<div class="section" id="t11">
+  <div class="chunk-label">Chunk 3</div>
+  <h2>Task 11: Hello Worker Example</h2>
+  <div class="files">
+    <span class="file file-create">examples/hello-worker/main.py</span>
+  </div>
+  <p>10-line worker. Muc tieu: ai cung co the chay trong 5 phut.</p>
+  <div class="card">
+    <div class="code">from magic_claw import Worker
+
+worker = Worker(name="HelloBot", endpoint="http://localhost:9000")
+
+@worker.capability("greeting", description="Says hello")
+def greet(name: str) -> str:
+    return f"Hello, {name}! I'm managed by MagiC."
+
+if __name__ == "__main__":
+    worker.register("http://localhost:8080")
+    worker.serve()</div>
+  </div>
+  <ul class="steps">
+    <li><div class="step-num">1</div><div class="step-text"><strong>Create main.py</strong> (10 lines)</div></li>
+    <li><div class="step-num">2</div><div class="step-text"><strong>E2E test:</strong> Terminal 1: make run | Terminal 2: python main.py | Terminal 3: curl register + submit task</div></li>
+    <li><div class="step-num">3</div><div class="step-text"><strong>Commit:</strong> "feat(examples): add hello-worker"</div></li>
+  </ul>
+</div>
+
+<!-- Task 12 -->
+<div class="section" id="t12">
+  <div class="chunk-label">Chunk 3</div>
+  <h2>Task 12: Final Tests + Commit</h2>
+  <ul class="steps">
+    <li><div class="step-num">1</div><div class="step-text"><strong>Go tests:</strong> <code>go test ./... -v -count=1</code> &rarr; 14+ tests PASS</div></li>
+    <li><div class="step-num">2</div><div class="step-text"><strong>Python tests:</strong> <code>pytest tests/ -v</code> &rarr; 3 tests PASS</div></li>
+    <li><div class="step-num">3</div><div class="step-text"><strong>Final commit:</strong> "feat: MagiC v0.1.0 — Foundation + Core"</div></li>
+  </ul>
+  <div class="card">
+    <h4>Tiep theo: Plan 2</h4>
+    <p>Tier 2 modules: Orchestrator, Evaluator, Cost Controller, Org Manager</p>
+  </div>
+</div>
+
+</div>
+
+<!-- Footer -->
+<div style="text-align:center;padding:36px 20px;color:var(--text-dim);font-size:0.75rem;border-top:1px solid var(--border);">
+  MagiC Plan 1 Review &mdash; 16/03/2026
+  <div style="margin-top:12px;">
+    <button onclick="submitAll()" style="background:var(--accent);color:white;border:none;padding:8px 20px;border-radius:8px;font-size:0.8rem;font-weight:600;cursor:pointer;">Gui tat ca feedback</button>
+  </div>
+</div>
+
+<script>
+const SECTIONS=['overview','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12'];
+const FB_URL='/api/plan-feedback';
+
+document.addEventListener('DOMContentLoaded',()=>{
+  SECTIONS.forEach(id=>{
+    const s=document.getElementById(id);if(!s)return;
+    const fb=document.createElement('div');fb.className='fb';fb.id='fb-'+id;
+    fb.innerHTML=`<div class="fb-head"><span class="fb-title">Feedback</span><div class="fb-btns"><button class="fb-btn ok" data-status="ok" onclick="ss('${id}','ok',this)">OK</button><button class="fb-btn edit" data-status="edit" onclick="ss('${id}','edit',this)">Can sua</button><button class="fb-btn reject" data-status="reject" onclick="ss('${id}','reject',this)">Reject</button></div></div><textarea class="fb-text" id="t-${id}" placeholder="Ghi chu..." rows="2"></textarea><div class="fb-saved" id="sv-${id}">Da luu!</div>`;
+    s.appendChild(fb);
+  });
+  fetch(FB_URL).then(r=>r.json()).then(d=>{Object.entries(d).forEach(([k,v])=>{const b=document.getElementById('fb-'+k);if(!b)return;if(v.status){const btn=b.querySelector(`.fb-btn[data-status="${v.status}"]`);if(btn)btn.classList.add('active');}if(v.comment)document.getElementById('t-'+k).value=v.comment;});}).catch(()=>{});
+});
+function ss(id,st,btn){document.getElementById('fb-'+id).querySelectorAll('.fb-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');save(id);}
+function save(id){const b=document.getElementById('fb-'+id);const a=b.querySelector('.fb-btn.active');fetch(FB_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({section:id,status:a?a.dataset.status:'pending',comment:document.getElementById('t-'+id).value})}).then(()=>{const s=document.getElementById('sv-'+id);s.style.display='block';setTimeout(()=>s.style.display='none',2000);});}
+function submitAll(){let n=0;SECTIONS.forEach(id=>{const b=document.getElementById('fb-'+id);if(b.querySelector('.fb-btn.active')||document.getElementById('t-'+id).value){save(id);n++;}});alert('Da luu '+n+'/'+SECTIONS.length+'. Quay lai terminal noi "doc feedback plan".');}
+document.addEventListener('focusout',e=>{if(e.target.classList.contains('fb-text')){const id=e.target.id.replace('t-','');const b=document.getElementById('fb-'+id);if(b.querySelector('.fb-btn.active')||e.target.value)save(id);}});
+</script>
+</body>
+</html>
