@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/kienbm/magic-claw/core/internal/costctrl"
+	"github.com/kienbm/magic-claw/core/internal/dispatcher"
 	"github.com/kienbm/magic-claw/core/internal/evaluator"
 	"github.com/kienbm/magic-claw/core/internal/events"
 	"github.com/kienbm/magic-claw/core/internal/knowledge"
@@ -26,9 +27,10 @@ type Gateway struct {
 	orchestrator *orchestrator.Orchestrator
 	orgMgr       *orgmgr.Manager
 	knowledge    *knowledge.Hub
+	dispatcher   *dispatcher.Dispatcher
 }
 
-func New(reg *registry.Registry, rt *router.Router, s store.Store, bus *events.Bus, mon *monitor.Monitor, cc *costctrl.Controller, ev *evaluator.Evaluator, orch *orchestrator.Orchestrator, mgr *orgmgr.Manager, kb *knowledge.Hub) *Gateway {
+func New(reg *registry.Registry, rt *router.Router, s store.Store, bus *events.Bus, mon *monitor.Monitor, cc *costctrl.Controller, ev *evaluator.Evaluator, orch *orchestrator.Orchestrator, mgr *orgmgr.Manager, kb *knowledge.Hub, disp *dispatcher.Dispatcher) *Gateway {
 	return &Gateway{
 		registry:     reg,
 		router:       rt,
@@ -40,6 +42,7 @@ func New(reg *registry.Registry, rt *router.Router, s store.Store, bus *events.B
 		orchestrator: orch,
 		orgMgr:       mgr,
 		knowledge:    kb,
+		dispatcher:   disp,
 	}
 }
 

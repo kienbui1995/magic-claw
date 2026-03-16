@@ -74,9 +74,10 @@ func (g *Gateway) handleSubmitTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = worker
-
 	g.store.AddTask(&task)
+
+	// Dispatch to worker asynchronously
+	go g.dispatcher.Dispatch(&task, worker)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
