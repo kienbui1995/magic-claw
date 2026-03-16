@@ -1,0 +1,15 @@
+bin/
+*.exe
+.env
+.env.*
+*.db
+__pycache__/
+*.pyc
+.venv/
+dist/
+*.egg-info/
+node_modules/
+.DS_Store
+feedback.json
+spec-feedback.json
+plan-feedback.json
