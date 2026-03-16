@@ -199,6 +199,16 @@ func (g *Gateway) handleListWorkflows(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, paginate(workflows, limit, offset))
 }
 
+func (g *Gateway) handleApproveStep(w http.ResponseWriter, r *http.Request) {
+	workflowID := r.PathValue("id")
+	stepID := r.PathValue("stepId")
+	if err := g.deps.Orchestrator.ApproveStep(workflowID, stepID); err != nil {
+		writeError(w, http.StatusBadRequest, "approval failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "approved"})
+}
+
 type CreateTeamRequest struct {
 	Name        string  `json:"name"`
 	OrgID       string  `json:"org_id"`
