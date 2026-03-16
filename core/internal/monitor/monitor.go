@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"io"
+	"sync"
 	"sync/atomic"
 
 	"github.com/kienbui1995/magic/core/internal/events"
@@ -16,9 +17,10 @@ type Stats struct {
 }
 
 type Monitor struct {
-	bus    *events.Bus
-	writer io.Writer
-	stats  Stats
+	bus      *events.Bus
+	writer   io.Writer
+	writerMu sync.Mutex
+	stats    Stats
 }
 
 func New(bus *events.Bus, writer io.Writer) *Monitor {
@@ -42,7 +44,7 @@ func (m *Monitor) Start() {
 			atomic.AddInt64(&m.stats.WorkersCount, -1)
 		}
 
-		writeLogEntry(m.writer, e)
+		writeLogEntry(m.writer, &m.writerMu, e)
 	})
 }
 

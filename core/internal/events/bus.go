@@ -44,11 +44,17 @@ func (b *Bus) Publish(e Event) {
 	defer b.mu.RUnlock()
 
 	for _, h := range b.handlers[e.Type] {
-		go h(e)
+		go func(handler Handler) {
+			defer func() { recover() }()
+			handler(e)
+		}(h)
 	}
 	if e.Type != "*" {
 		for _, h := range b.handlers["*"] {
-			go h(e)
+			go func(handler Handler) {
+				defer func() { recover() }()
+				handler(e)
+			}(h)
 		}
 	}
 }

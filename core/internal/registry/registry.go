@@ -67,7 +67,7 @@ func (r *Registry) Heartbeat(p protocol.HeartbeatPayload) error {
 	}
 	w.LastHeartbeat = time.Now()
 	w.CurrentLoad = p.CurrentLoad
-	if p.Status != "" {
+	if p.Status != "" && w.Status != protocol.StatusPaused {
 		w.Status = p.Status
 	}
 	return r.store.UpdateWorker(w)
