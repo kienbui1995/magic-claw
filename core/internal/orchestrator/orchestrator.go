@@ -259,6 +259,9 @@ func (o *Orchestrator) dispatchStep(wf *protocol.Workflow, step *protocol.Workfl
 
 // ApproveStep approves a step that is awaiting approval, allowing it to proceed.
 func (o *Orchestrator) ApproveStep(workflowID, stepID string) error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
 	wf, err := o.store.GetWorkflow(workflowID)
 	if err != nil {
 		return err
@@ -266,8 +269,8 @@ func (o *Orchestrator) ApproveStep(workflowID, stepID string) error {
 
 	for i := range wf.Steps {
 		if wf.Steps[i].ID == stepID && wf.Steps[i].Status == protocol.StepAwaitApproval {
-			wf.Steps[i].ApprovalRequired = false // clear flag
-			wf.Steps[i].Status = protocol.StepPending // reset to pending
+			wf.Steps[i].ApprovalRequired = false
+			wf.Steps[i].Status = protocol.StepPending
 			if err := o.store.UpdateWorkflow(wf); err != nil {
 				return err
 			}
@@ -276,7 +279,7 @@ func (o *Orchestrator) ApproveStep(workflowID, stepID string) error {
 				Source: "orchestrator",
 				Payload: map[string]any{"workflow_id": workflowID, "step_id": stepID},
 			})
-			go o.advanceWorkflow(wf)
+			o.advanceWorkflowLocked(wf)
 			return nil
 		}
 	}
@@ -299,7 +302,8 @@ func (o *Orchestrator) CancelWorkflow(workflowID string) error {
 
 	for i := range wf.Steps {
 		s := &wf.Steps[i]
-		if s.Status == protocol.StepPending || s.Status == protocol.StepAwaitApproval {
+		switch s.Status {
+		case protocol.StepPending, protocol.StepAwaitApproval, protocol.StepRunning:
 			s.Status = protocol.StepFailed
 			s.Error = &protocol.TaskError{Code: "cancelled", Message: "workflow cancelled"}
 		}

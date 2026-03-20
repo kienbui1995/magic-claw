@@ -285,11 +285,12 @@ func (d *Dispatcher) isCircuitOpen(workerID string) bool {
 	if !ok {
 		return false
 	}
-	if cs.failures >= circuitFailThreshold && time.Now().Before(cs.openUntil) {
-		return true
-	}
-	if time.Now().After(cs.openUntil) {
-		cs.failures = 0 // reset after cooldown
+	if cs.failures >= circuitFailThreshold {
+		if time.Now().Before(cs.openUntil) {
+			return true // circuit is open
+		}
+		// Cooldown passed — reset to half-open (allow one attempt)
+		cs.failures = 0
 	}
 	return false
 }

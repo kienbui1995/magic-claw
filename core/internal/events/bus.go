@@ -114,6 +114,18 @@ func (b *Bus) safeCall(h Handler, e Event) {
 func (b *Bus) Subscribe(eventType string, handler Handler) func() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
+	// Lazy cleanup: remove canceled subscriptions for this event type
+	if subs := b.handlers[eventType]; len(subs) > 0 {
+		active := make([]*subscription, 0, len(subs))
+		for _, s := range subs {
+			if !s.canceled.Load() {
+				active = append(active, s)
+			}
+		}
+		b.handlers[eventType] = active
+	}
+
 	sub := &subscription{handler: handler}
 	b.handlers[eventType] = append(b.handlers[eventType], sub)
 	return func() { sub.canceled.Store(true) }
@@ -128,6 +140,13 @@ func (b *Bus) Publish(e Event) {
 	if e.Severity == "" {
 		e.Severity = "info"
 	}
+
+	b.mu.RLock()
+	if b.stopped {
+		b.mu.RUnlock()
+		return
+	}
+	b.mu.RUnlock()
 
 	select {
 	case b.eventCh <- e:

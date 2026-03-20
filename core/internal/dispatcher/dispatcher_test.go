@@ -3,6 +3,7 @@ package dispatcher_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -199,5 +200,55 @@ func TestDispatcher_CostTracking(t *testing.T) {
 	report := cc.WorkerReport("worker_001")
 	if report.TotalCost != 0.15 {
 		t.Errorf("cost: got %f, want 0.15", report.TotalCost)
+	}
+}
+
+func TestDispatcher_CircuitBreaker(t *testing.T) {
+	s := store.NewMemoryStore()
+	bus := events.NewBus()
+	defer bus.Stop()
+
+	// No real worker — will always fail
+	worker := &protocol.Worker{
+		ID:       "worker_cb",
+		Name:     "FailBot",
+		Status:   protocol.StatusActive,
+		Endpoint: protocol.Endpoint{Type: "http", URL: "http://127.0.0.1:1"},
+	}
+	s.AddWorker(worker)
+
+	d := dispatcher.New(s, bus, nil, nil)
+
+	// Dispatch 3 tasks — all will fail (unreachable), should trigger circuit breaker
+	for i := 0; i < 3; i++ {
+		task := &protocol.Task{
+			ID:     fmt.Sprintf("task_cb_%d", i),
+			Type:   "test",
+			Status: protocol.TaskAssigned,
+			Input:  json.RawMessage(`{}`),
+		}
+		s.AddTask(task)
+		d.Dispatch(context.Background(), task, worker)
+	}
+
+	// 4th dispatch should fail immediately due to circuit breaker
+	task4 := &protocol.Task{
+		ID:     "task_cb_4",
+		Type:   "test",
+		Status: protocol.TaskAssigned,
+		Input:  json.RawMessage(`{}`),
+	}
+	s.AddTask(task4)
+	err := d.Dispatch(context.Background(), task4, worker)
+	if err == nil {
+		t.Error("should fail — circuit breaker should be open")
+	}
+	if task4.Status != protocol.TaskFailed {
+		t.Errorf("task status: got %q, want failed", task4.Status)
+	}
+
+	got, _ := s.GetTask("task_cb_4")
+	if got.Error == nil || got.Error.Message != "circuit breaker open: worker has too many recent failures" {
+		t.Errorf("expected circuit breaker error, got: %v", got.Error)
 	}
 }
