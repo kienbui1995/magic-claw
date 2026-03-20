@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MagiC — Where AI becomes a Company</title>
 <meta name="description" content="Open-source framework for managing fleets of AI agents. Kubernetes for AI workers.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='24' font-size='24'>M</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -429,8 +430,14 @@ footer {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
 }
-.animate { opacity: 0; transform: translateY(20px); transition: all 0.6s ease; }
+.animate { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
 .animate.visible { opacity: 1; transform: translateY(0); }
+.animate:nth-child(2) { transition-delay: 0.1s; }
+.animate:nth-child(3) { transition-delay: 0.2s; }
+
+/* DAG VISUAL (SVG-based) */
+.dag-svg { margin-top: 32px; }
+.dag-svg text { font-family: var(--font-mono); font-size: 13px; }
 
 /* RESPONSIVE */
 @media (max-width: 768px) {
@@ -440,6 +447,8 @@ footer {
   nav .links a:not(.btn-github) { display: none; }
   .comparison-table { font-size: 11px; }
   .comparison-table th, .comparison-table td { padding: 10px 8px; }
+  .cta-code { font-size: 11px; padding: 12px 16px; word-break: break-all; }
+  .dag-svg { width: 100%; height: auto; }
 }
 </style>
 </head>
@@ -621,17 +630,46 @@ worker.<span class="fn">serve</span>()
     <div class="section-label">Orchestration</div>
     <div class="section-title">Multi-step workflows as DAGs</div>
     <div class="section-desc" style="margin:0 auto 0;">Submit a pipeline. MagiC handles dependencies, parallel execution, retries, and approval gates.</div>
-    <div class="dag-visual animate">
-      <span class="node active">research</span><br>
-      <span class="arrow">&darr;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&darr;</span><br>
-      <span class="node active">content</span> &nbsp;&nbsp;&nbsp;&nbsp; <span class="node active">leads</span><br>
-      <span class="arrow">&darr;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&darr;</span><br>
-      <span class="node">seo</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="arrow">|</span><br>
-      <span class="arrow">&searr;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&swarr;</span><br>
-      <span class="node waiting">&#x270B; approval</span><br>
-      <span class="arrow">&darr;</span><br>
-      <span class="node">outreach</span>
-    </div>
+    <svg class="dag-svg animate" width="420" height="380" viewBox="0 0 420 380">
+      <!-- Arrows -->
+      <defs>
+        <marker id="ah" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#64748b"/></marker>
+      </defs>
+      <!-- research -> content -->
+      <line x1="210" y1="42" x2="120" y2="95" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah)"/>
+      <!-- research -> leads -->
+      <line x1="210" y1="42" x2="300" y2="95" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah)"/>
+      <!-- content -> seo -->
+      <line x1="120" y1="132" x2="120" y2="175" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah)"/>
+      <!-- seo -> approval -->
+      <line x1="150" y1="212" x2="195" y2="255" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah)"/>
+      <!-- leads -> approval -->
+      <line x1="300" y1="132" x2="240" y2="255" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah)"/>
+      <!-- approval -> outreach -->
+      <line x1="210" y1="292" x2="210" y2="330" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah)"/>
+
+      <!-- Nodes -->
+      <rect x="148" y="10" width="124" height="34" rx="6" fill="rgba(34,197,94,0.15)" stroke="#22c55e"/>
+      <text x="210" y="32" fill="#22c55e" text-anchor="middle" font-weight="500">research</text>
+
+      <rect x="58" y="100" width="124" height="34" rx="6" fill="rgba(34,197,94,0.15)" stroke="#22c55e"/>
+      <text x="120" y="122" fill="#22c55e" text-anchor="middle" font-weight="500">content</text>
+
+      <rect x="238" y="100" width="124" height="34" rx="6" fill="rgba(34,197,94,0.15)" stroke="#22c55e"/>
+      <text x="300" y="122" fill="#22c55e" text-anchor="middle" font-weight="500">leads</text>
+
+      <rect x="58" y="180" width="124" height="34" rx="6" fill="rgba(45,212,191,0.1)" stroke="rgba(45,212,191,0.3)"/>
+      <text x="120" y="202" fill="#2dd4bf" text-anchor="middle" font-weight="500">seo</text>
+
+      <!-- parallel label -->
+      <text x="380" y="122" fill="#64748b" font-size="11">parallel</text>
+
+      <rect x="148" y="260" width="124" height="34" rx="6" fill="rgba(251,191,36,0.1)" stroke="#fbbf24"/>
+      <text x="210" y="282" fill="#fbbf24" text-anchor="middle" font-weight="500">approval</text>
+
+      <rect x="148" y="335" width="124" height="34" rx="6" fill="rgba(45,212,191,0.1)" stroke="rgba(45,212,191,0.3)"/>
+      <text x="210" y="357" fill="#2dd4bf" text-anchor="middle" font-weight="500">outreach</text>
+    </svg>
   </div>
 </section>
 
@@ -648,7 +686,8 @@ worker.<span class="fn">serve</span>()
       <a href="https://github.com/kienbui1995/magic/blob/main/docs/guides/crewai-integration.md" class="btn-secondary">CrewAI Integration</a>
     </div>
     <div class="cta-code">
-      <span class="prompt">$</span> git clone https://github.com/kienbui1995/magic.git && cd magic/core && go build ./cmd/magic && ./magic serve
+      <span class="prompt">$</span> git clone https://github.com/kienbui1995/magic.git<br>
+      <span class="prompt">$</span> cd magic/core && go build ./cmd/magic && ../bin/magic serve
     </div>
   </div>
 </section>
@@ -660,16 +699,28 @@ worker.<span class="fn">serve</span>()
 </footer>
 
 <script>
-// Intersection Observer for scroll animations
-const observer = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    if (entry.isIntersecting) {
-      entry.target.classList.add('visible');
-    }
-  });
-}, { threshold: 0.1 });
+// Scroll animations with reliable IntersectionObserver
+const els = document.querySelectorAll('.animate');
 
-document.querySelectorAll('.animate').forEach(el => observer.observe(el));
+if ('IntersectionObserver' in window) {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.05, rootMargin: '0px 0px -40px 0px' });
+  els.forEach(el => observer.observe(el));
+
+  // Fallback: show all after 3s in case observer doesn't fire
+  setTimeout(() => {
+    els.forEach(el => el.classList.add('visible'));
+  }, 3000);
+} else {
+  // No IntersectionObserver support — show everything
+  els.forEach(el => el.classList.add('visible'));
+}
 </script>
 
 </body>
