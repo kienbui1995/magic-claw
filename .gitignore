@@ -1,4 +1,5 @@
-bin/
+bin/*
+!bin/magic-claw.js
 *.exe
 .env
 .env.*

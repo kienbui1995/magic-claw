@@ -1,0 +1,23 @@
+{
+  "name": "magic-claw",
+  "version": "0.3.1",
+  "description": "Kubernetes for AI agents — manage fleets of AI workers",
+  "type": "module",
+  "bin": {
+    "magic-claw": "./bin/magic-claw.js",
+    "magic": "./bin/magic-claw.js"
+  },
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "files": [
+    "bin/magic-claw.js",
+    "scripts/postinstall.js"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kienbui1995/magic.git"
+  },
+  "keywords": ["ai", "agents", "ai-agents", "orchestration", "llm", "workers"],
+  "license": "Apache-2.0"
+}
