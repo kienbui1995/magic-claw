@@ -21,6 +21,22 @@ jobs:
         run: cd core && go test ./... -v -race -count=1
       - name: Vet
         run: cd core && go vet ./...
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: core
+
+  go-sdk:
+    name: Go SDK Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - name: Test
+        run: cd sdk/go && go test ./... -v -race
 
   python:
     name: Python Tests
@@ -32,5 +48,7 @@ jobs:
           python-version: '3.12'
       - name: Install SDK
         run: cd sdk/python && pip install -e ".[dev]"
+      - name: Lint
+        run: cd sdk/python && pip install ruff && ruff check .
       - name: Test
         run: cd sdk/python && pytest tests/ -v
