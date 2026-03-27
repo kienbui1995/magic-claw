@@ -4,7 +4,7 @@ import json
 import logging
 import threading
 import time
-from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Callable
 
 from magic_ai_sdk.client import MagiCClient

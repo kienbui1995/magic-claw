@@ -1,6 +1,7 @@
 """MagiC HTTP client for communicating with the server."""
 
 import logging
+
 import httpx
 
 logger = logging.getLogger("magic_ai_sdk")
