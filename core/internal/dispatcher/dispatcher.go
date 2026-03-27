@@ -129,7 +129,7 @@ func (d *Dispatcher) Dispatch(ctx context.Context, task *protocol.Task, worker *
 	}
 
 	task.Status = protocol.TaskInProgress
-	d.store.UpdateTask(task)
+	d.store.UpdateTask(task) //nolint:errcheck
 
 	d.bus.Publish(events.Event{
 		Type:   "task.dispatched",

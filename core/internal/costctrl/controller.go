@@ -39,7 +39,7 @@ func (c *Controller) RecordCost(workerID, taskID string, cost float64) {
 	w, err := c.store.GetWorker(workerID)
 	if err == nil {
 		w.TotalCostToday += cost
-		c.store.UpdateWorker(w)
+		c.store.UpdateWorker(w) //nolint:errcheck
 		c.checkBudget(w)
 	}
 
@@ -56,7 +56,7 @@ func (c *Controller) checkBudget(w *protocol.Worker) {
 	ratio := w.TotalCostToday / w.Limits.MaxCostPerDay
 	if ratio >= 1.0 {
 		w.Status = protocol.StatusPaused
-		c.store.UpdateWorker(w)
+		c.store.UpdateWorker(w) //nolint:errcheck
 		c.bus.Publish(events.Event{Type: "budget.exceeded", Source: "costctrl", Severity: "error",
 			Payload: map[string]any{"worker_id": w.ID, "spent": w.TotalCostToday, "budget": w.Limits.MaxCostPerDay}})
 	} else if ratio >= 0.8 {

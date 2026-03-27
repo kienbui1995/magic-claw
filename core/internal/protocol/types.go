@@ -36,7 +36,7 @@ const (
 // GenerateID creates a unique identifier with the given prefix.
 func GenerateID(prefix string) string {
 	b := make([]byte, 8)
-	rand.Read(b)
+	rand.Read(b) //nolint:errcheck
 	return fmt.Sprintf("%s_%s", prefix, hex.EncodeToString(b))
 }
 

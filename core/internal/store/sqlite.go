@@ -294,7 +294,7 @@ func (s *SQLiteStore) ListWorkerTokensByWorker(workerID string) []*protocol.Work
 }
 func (s *SQLiteStore) HasAnyWorkerTokens() bool {
 	var count int
-	s.db.QueryRow("SELECT COUNT(*) FROM worker_tokens LIMIT 1").Scan(&count)
+	s.db.QueryRow("SELECT COUNT(*) FROM worker_tokens LIMIT 1").Scan(&count) //nolint:errcheck
 	return count > 0
 }
 

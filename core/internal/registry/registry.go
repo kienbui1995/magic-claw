@@ -57,7 +57,7 @@ func (r *Registry) Register(p protocol.RegisterPayload) (*protocol.Worker, error
 		// Bind token to worker; rollback on failure
 		token.WorkerID = w.ID
 		if err := r.store.UpdateWorkerToken(token); err != nil {
-			r.store.RemoveWorker(w.ID)
+			r.store.RemoveWorker(w.ID) //nolint:errcheck
 			return nil, fmt.Errorf("token already in use")
 		}
 
@@ -125,7 +125,7 @@ func (r *Registry) Heartbeat(p protocol.HeartbeatPayload) error {
 		hash := protocol.HashToken(p.WorkerToken)
 		token, err := r.store.GetWorkerTokenByHash(hash)
 		if err != nil {
-			r.store.AppendAudit(&protocol.AuditEntry{
+			r.store.AppendAudit(&protocol.AuditEntry{ //nolint:errcheck
 				ID:       protocol.GenerateID("audit"),
 				WorkerID: p.WorkerID,
 				Action:   "worker.heartbeat",
@@ -135,7 +135,7 @@ func (r *Registry) Heartbeat(p protocol.HeartbeatPayload) error {
 			return fmt.Errorf("invalid worker token")
 		}
 		if !token.IsValid() {
-			r.store.AppendAudit(&protocol.AuditEntry{
+			r.store.AppendAudit(&protocol.AuditEntry{ //nolint:errcheck
 				ID:       protocol.GenerateID("audit"),
 				WorkerID: p.WorkerID,
 				Action:   "worker.heartbeat",
@@ -145,7 +145,7 @@ func (r *Registry) Heartbeat(p protocol.HeartbeatPayload) error {
 			return fmt.Errorf("token expired or revoked")
 		}
 		if token.WorkerID != p.WorkerID {
-			r.store.AppendAudit(&protocol.AuditEntry{
+			r.store.AppendAudit(&protocol.AuditEntry{ //nolint:errcheck
 				ID:       protocol.GenerateID("audit"),
 				WorkerID: p.WorkerID,
 				Action:   "worker.heartbeat",

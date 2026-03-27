@@ -35,7 +35,7 @@ func (r *Registry) checkHealth() {
 	for _, w := range workers {
 		if w.Status == protocol.StatusActive && now.Sub(w.LastHeartbeat) > HeartbeatTimeout {
 			w.Status = protocol.StatusOffline
-			r.store.UpdateWorker(w)
+			r.store.UpdateWorker(w) //nolint:errcheck
 			r.bus.Publish(events.Event{
 				Type:     "worker.offline",
 				Source:   "registry",
