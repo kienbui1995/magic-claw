@@ -330,16 +330,17 @@ func (g *Gateway) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 
 	raw, hash := protocol.GenerateToken()
 
+	now := time.Now()
 	token := &protocol.WorkerToken{
 		ID:        protocol.GenerateID("token"),
 		OrgID:     orgID,
 		TokenHash: hash,
 		Name:      req.Name,
-		CreatedAt: time.Now(),
+		CreatedAt: now,
 	}
 	if req.ExpiresInHours > 0 {
-		t := time.Now().Add(time.Duration(req.ExpiresInHours) * time.Hour)
-		token.ExpiresAt = &t
+		exp := now.Add(time.Duration(req.ExpiresInHours) * time.Hour)
+		token.ExpiresAt = &exp
 	}
 
 	if err := g.deps.Store.AddWorkerToken(token); err != nil {

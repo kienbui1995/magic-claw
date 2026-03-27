@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -94,6 +95,12 @@ func runServer() {
 		Knowledge:    kb,
 		Dispatcher:   disp,
 	})
+
+	if s.HasAnyWorkerTokens() {
+		log.Printf("[security] worker token auth: enabled")
+	} else {
+		log.Printf("[security] worker token auth: disabled (dev mode — create a token to enable)")
+	}
 
 	srv := &http.Server{
 		Addr:              ":" + port,

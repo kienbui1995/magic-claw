@@ -52,7 +52,10 @@ func workerAuthMiddleware(s store.Store) func(http.Handler) http.Handler {
 				return
 			}
 
-			reqID := w.Header().Get("X-Request-ID")
+			reqID := r.Header.Get("X-Request-ID")
+			if reqID == "" {
+				reqID = w.Header().Get("X-Request-ID")
+			}
 
 			raw := extractBearerToken(r)
 			if raw == "" {

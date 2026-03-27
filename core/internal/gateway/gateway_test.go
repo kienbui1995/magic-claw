@@ -501,6 +501,213 @@ func TestQueryAudit_Empty(t *testing.T) {
 	}
 }
 
+// --- End-to-end integration tests ---
+
+func TestFullFlow_CreateToken_Register_Heartbeat(t *testing.T) {
+	gw := setupGateway()
+	srv := httptest.NewServer(gw.Handler())
+	defer srv.Close()
+
+	// Step 1: Create a token for org1
+	body, _ := json.Marshal(map[string]any{"name": "flow-token"})
+	createResp, err := http.Post(srv.URL+"/api/v1/orgs/org1/tokens", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if createResp.StatusCode != 201 {
+		t.Fatalf("create token: got %d, want 201", createResp.StatusCode)
+	}
+	var tokenResult map[string]any
+	json.NewDecoder(createResp.Body).Decode(&tokenResult)
+	rawToken := tokenResult["token"].(string)
+	if rawToken == "" {
+		t.Fatal("expected non-empty raw token")
+	}
+
+	// Step 2: Register worker using the token
+	regPayload := protocol.RegisterPayload{
+		WorkerToken:  rawToken,
+		Name:         "FlowBot",
+		Capabilities: []protocol.Capability{{Name: "test"}},
+		Endpoint:     protocol.Endpoint{Type: "http", URL: "http://localhost:9001"},
+	}
+	regBody, _ := json.Marshal(regPayload)
+	regReq, _ := http.NewRequest(http.MethodPost, srv.URL+"/api/v1/workers/register", bytes.NewReader(regBody))
+	regReq.Header.Set("Content-Type", "application/json")
+	regReq.Header.Set("Authorization", "Bearer "+rawToken)
+	regResp, err := http.DefaultClient.Do(regReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if regResp.StatusCode != 201 {
+		t.Errorf("register: got %d, want 201", regResp.StatusCode)
+	}
+	var worker protocol.Worker
+	json.NewDecoder(regResp.Body).Decode(&worker)
+	if worker.ID == "" {
+		t.Fatal("expected non-empty worker ID")
+	}
+
+	// Step 3: Heartbeat with token + worker_id
+	hbPayload := protocol.HeartbeatPayload{
+		WorkerToken: rawToken,
+		WorkerID:    worker.ID,
+		CurrentLoad: 1,
+		Status:      protocol.StatusActive,
+	}
+	hbBody, _ := json.Marshal(hbPayload)
+	hbReq, _ := http.NewRequest(http.MethodPost, srv.URL+"/api/v1/workers/heartbeat", bytes.NewReader(hbBody))
+	hbReq.Header.Set("Content-Type", "application/json")
+	hbReq.Header.Set("Authorization", "Bearer "+rawToken)
+	hbResp, err := http.DefaultClient.Do(hbReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hbResp.StatusCode != 200 {
+		t.Errorf("heartbeat: got %d, want 200", hbResp.StatusCode)
+	}
+}
+
+func TestFullFlow_RevokeToken_HeartbeatFails(t *testing.T) {
+	gw := setupGateway()
+	srv := httptest.NewServer(gw.Handler())
+	defer srv.Close()
+
+	// Create token → register → get worker_id
+	body, _ := json.Marshal(map[string]any{"name": "revoke-flow-token"})
+	createResp, _ := http.Post(srv.URL+"/api/v1/orgs/org1/tokens", "application/json", bytes.NewReader(body))
+	var tokenResult map[string]any
+	json.NewDecoder(createResp.Body).Decode(&tokenResult)
+	rawToken := tokenResult["token"].(string)
+	tokenID := tokenResult["id"].(string)
+
+	regPayload := protocol.RegisterPayload{
+		WorkerToken: rawToken,
+		Name:        "RevokeFlowBot",
+		Endpoint:    protocol.Endpoint{Type: "http", URL: "http://localhost:9002"},
+	}
+	regBody, _ := json.Marshal(regPayload)
+	regReq, _ := http.NewRequest(http.MethodPost, srv.URL+"/api/v1/workers/register", bytes.NewReader(regBody))
+	regReq.Header.Set("Content-Type", "application/json")
+	regReq.Header.Set("Authorization", "Bearer "+rawToken)
+	regResp, _ := http.DefaultClient.Do(regReq)
+	var worker protocol.Worker
+	json.NewDecoder(regResp.Body).Decode(&worker)
+
+	// Revoke the token
+	revokeReq, _ := http.NewRequest(http.MethodDelete, srv.URL+"/api/v1/orgs/org1/tokens/"+tokenID, nil)
+	revokeResp, err := http.DefaultClient.Do(revokeReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if revokeResp.StatusCode != 200 {
+		t.Fatalf("revoke: got %d, want 200", revokeResp.StatusCode)
+	}
+
+	// Heartbeat with revoked token should return 401
+	hbPayload := protocol.HeartbeatPayload{
+		WorkerToken: rawToken,
+		WorkerID:    worker.ID,
+		CurrentLoad: 0,
+		Status:      protocol.StatusActive,
+	}
+	hbBody, _ := json.Marshal(hbPayload)
+	hbReq, _ := http.NewRequest(http.MethodPost, srv.URL+"/api/v1/workers/heartbeat", bytes.NewReader(hbBody))
+	hbReq.Header.Set("Content-Type", "application/json")
+	hbReq.Header.Set("Authorization", "Bearer "+rawToken)
+	hbResp, err := http.DefaultClient.Do(hbReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hbResp.StatusCode != 401 {
+		t.Errorf("heartbeat with revoked token: got %d, want 401", hbResp.StatusCode)
+	}
+}
+
+func TestFullFlow_DevMode_NoAuth(t *testing.T) {
+	// Fresh store with no tokens, no MAGIC_API_KEY — dev mode
+	gw := setupGateway()
+	srv := httptest.NewServer(gw.Handler())
+	defer srv.Close()
+
+	// Register with no Authorization header → 201 in dev mode
+	regPayload := protocol.RegisterPayload{
+		Name:     "DevModeBot",
+		Endpoint: protocol.Endpoint{Type: "http", URL: "http://localhost:9003"},
+	}
+	regBody, _ := json.Marshal(regPayload)
+	regResp, err := http.Post(srv.URL+"/api/v1/workers/register", "application/json", bytes.NewReader(regBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if regResp.StatusCode != 201 {
+		t.Errorf("dev mode register: got %d, want 201", regResp.StatusCode)
+	}
+	var worker protocol.Worker
+	json.NewDecoder(regResp.Body).Decode(&worker)
+
+	// Heartbeat with no token → 200 in dev mode
+	hbPayload := protocol.HeartbeatPayload{
+		WorkerID:    worker.ID,
+		CurrentLoad: 0,
+		Status:      protocol.StatusActive,
+	}
+	hbBody, _ := json.Marshal(hbPayload)
+	hbResp, err := http.Post(srv.URL+"/api/v1/workers/heartbeat", "application/json", bytes.NewReader(hbBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hbResp.StatusCode != 200 {
+		t.Errorf("dev mode heartbeat: got %d, want 200", hbResp.StatusCode)
+	}
+}
+
+func TestFullFlow_BackwardCompat_APIKeyOnly(t *testing.T) {
+	t.Setenv("MAGIC_API_KEY", "test-key")
+
+	// No worker tokens in store
+	gw := setupGateway()
+	srv := httptest.NewServer(gw.Handler())
+	defer srv.Close()
+
+	// Worker register without worker token → 201 (dev mode for workers — no worker tokens exist)
+	regPayload := protocol.RegisterPayload{
+		Name:     "APIKeyBot",
+		Endpoint: protocol.Endpoint{Type: "http", URL: "http://localhost:9004"},
+	}
+	regBody, _ := json.Marshal(regPayload)
+	regReq, _ := http.NewRequest(http.MethodPost, srv.URL+"/api/v1/workers/register", bytes.NewReader(regBody))
+	regReq.Header.Set("Content-Type", "application/json")
+	regReq.Header.Set("Authorization", "Bearer test-key") // API key auth for outer middleware
+	regResp, err := http.DefaultClient.Do(regReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if regResp.StatusCode != 201 {
+		t.Errorf("register with API key: got %d, want 201", regResp.StatusCode)
+	}
+
+	// GET /api/v1/workers without API key → 401
+	listResp, err := http.Get(srv.URL + "/api/v1/workers")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if listResp.StatusCode != 401 {
+		t.Errorf("list workers without API key: got %d, want 401", listResp.StatusCode)
+	}
+
+	// GET /api/v1/workers with Authorization: Bearer test-key → 200
+	authReq, _ := http.NewRequest(http.MethodGet, srv.URL+"/api/v1/workers", nil)
+	authReq.Header.Set("Authorization", "Bearer test-key")
+	authResp, err := http.DefaultClient.Do(authReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if authResp.StatusCode != 200 {
+		t.Errorf("list workers with API key: got %d, want 200", authResp.StatusCode)
+	}
+}
+
 // --- Worker auth middleware tests ---
 
 func TestWorkerAuth_DevMode(t *testing.T) {

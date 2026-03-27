@@ -272,6 +272,35 @@ func TestRegister_RevokedToken(t *testing.T) {
 	}
 }
 
+func TestRegister_ExpiredToken(t *testing.T) {
+	s := store.NewMemoryStore()
+	bus := events.NewBus()
+	reg := registry.New(s, bus)
+
+	raw, hash := protocol.GenerateToken()
+	past := time.Now().Add(-time.Hour)
+	tok := &protocol.WorkerToken{
+		ID:        protocol.GenerateID("token"),
+		OrgID:     "org_acme",
+		TokenHash: hash,
+		Name:      "expired-token",
+		CreatedAt: time.Now().Add(-2 * time.Hour),
+		ExpiresAt: &past,
+	}
+	if err := s.AddWorkerToken(tok); err != nil {
+		t.Fatalf("AddWorkerToken: %v", err)
+	}
+
+	_, err := reg.Register(protocol.RegisterPayload{
+		WorkerToken: raw,
+		Name:        "ExpiredBot",
+		Endpoint:    protocol.Endpoint{Type: "http", URL: "http://localhost:9001"},
+	})
+	if err == nil {
+		t.Fatal("expected error for expired token, got nil")
+	}
+}
+
 func TestRegister_AlreadyBoundToken(t *testing.T) {
 	s := store.NewMemoryStore()
 	bus := events.NewBus()
