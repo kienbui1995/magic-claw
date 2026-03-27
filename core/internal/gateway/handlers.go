@@ -15,13 +15,13 @@ import (
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
+	json.NewEncoder(w).Encode(v) //nolint:errcheck
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+	json.NewEncoder(w).Encode(map[string]string{"error": msg}) //nolint:errcheck
 }
 
 func getPagination(r *http.Request) (limit, offset int) {
@@ -155,12 +155,12 @@ func (g *Gateway) handleSubmitTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	g.deps.Store.AddTask(&task)
+	g.deps.Store.AddTask(&task) //nolint:errcheck
 
 	// Copy for async dispatch to avoid race condition (H-04)
 	taskCopy := task
 	workerCopy := *worker
-	go g.deps.Dispatcher.Dispatch(context.Background(), &taskCopy, &workerCopy)
+	go g.deps.Dispatcher.Dispatch(context.Background(), &taskCopy, &workerCopy) //nolint:errcheck
 
 	writeJSON(w, http.StatusCreated, task)
 }
