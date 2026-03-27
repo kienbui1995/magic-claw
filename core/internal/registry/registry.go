@@ -58,7 +58,7 @@ func (r *Registry) Register(p protocol.RegisterPayload) (*protocol.Worker, error
 		token.WorkerID = w.ID
 		if err := r.store.UpdateWorkerToken(token); err != nil {
 			r.store.RemoveWorker(w.ID)
-			return nil, fmt.Errorf("failed to bind token")
+			return nil, fmt.Errorf("token already in use")
 		}
 
 		r.bus.Publish(events.Event{

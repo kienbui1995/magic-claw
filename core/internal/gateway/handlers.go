@@ -122,6 +122,11 @@ func (g *Gateway) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
 
 func (g *Gateway) handleDeregisterWorker(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	// In security mode, verify the caller's token is bound to this worker.
+	if token := TokenFromContext(r.Context()); token != nil && token.WorkerID != id {
+		writeError(w, http.StatusForbidden, "token not authorized for this worker")
+		return
+	}
 	if err := g.deps.Registry.Deregister(id); err != nil {
 		writeError(w, http.StatusNotFound, "worker not found")
 		return

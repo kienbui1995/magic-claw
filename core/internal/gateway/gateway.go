@@ -56,7 +56,7 @@ func (g *Gateway) Handler() http.Handler {
 	mux.Handle("POST /api/v1/workers/heartbeat", workerAuth(http.HandlerFunc(g.handleHeartbeat)))
 	mux.HandleFunc("GET /api/v1/workers", g.handleListWorkers)
 	mux.HandleFunc("GET /api/v1/workers/{id}", g.handleGetWorker)
-	mux.HandleFunc("DELETE /api/v1/workers/{id}", g.handleDeregisterWorker)
+	mux.Handle("DELETE /api/v1/workers/{id}", workerAuth(http.HandlerFunc(g.handleDeregisterWorker)))
 
 	// Tasks
 	mux.HandleFunc("POST /api/v1/tasks", g.handleSubmitTask)
