@@ -42,6 +42,7 @@ func extractBearerToken(r *http.Request) string {
 
 // workerAuthMiddleware validates mct_ tokens for worker lifecycle endpoints.
 // In dev mode (no tokens stored), all requests pass through without auth.
+// Auth rejections are recorded to the audit log via store.AppendAudit.
 func workerAuthMiddleware(s store.Store) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -51,8 +52,18 @@ func workerAuthMiddleware(s store.Store) func(http.Handler) http.Handler {
 				return
 			}
 
+			reqID := w.Header().Get("X-Request-ID")
+
 			raw := extractBearerToken(r)
 			if raw == "" {
+				s.AppendAudit(&protocol.AuditEntry{ //nolint:errcheck
+					ID:        protocol.GenerateID("audit"),
+					Action:    "auth.rejected",
+					Resource:  r.URL.Path,
+					RequestID: reqID,
+					Outcome:   "denied",
+					Detail:    map[string]any{"reason": "missing token"},
+				})
 				writeError(w, http.StatusUnauthorized, "worker token required")
 				return
 			}
@@ -60,6 +71,14 @@ func workerAuthMiddleware(s store.Store) func(http.Handler) http.Handler {
 			hash := protocol.HashToken(raw)
 			token, err := s.GetWorkerTokenByHash(hash)
 			if err != nil || !token.IsValid() {
+				s.AppendAudit(&protocol.AuditEntry{ //nolint:errcheck
+					ID:        protocol.GenerateID("audit"),
+					Action:    "auth.rejected",
+					Resource:  r.URL.Path,
+					RequestID: reqID,
+					Outcome:   "denied",
+					Detail:    map[string]any{"reason": "invalid or revoked token"},
+				})
 				writeError(w, http.StatusUnauthorized, "invalid or revoked token")
 				return
 			}

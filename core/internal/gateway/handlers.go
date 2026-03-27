@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/kienbui1995/magic/core/internal/protocol"
@@ -67,7 +68,15 @@ func (g *Gateway) handleRegisterWorker(w http.ResponseWriter, r *http.Request) {
 
 	worker, err := g.deps.Registry.Register(payload)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to register worker")
+		msg := err.Error()
+		switch {
+		case strings.Contains(msg, "token already in use"):
+			writeError(w, http.StatusConflict, msg)
+		case strings.Contains(msg, "token"):
+			writeError(w, http.StatusUnauthorized, msg)
+		default:
+			writeError(w, http.StatusInternalServerError, msg)
+		}
 		return
 	}
 
@@ -97,7 +106,15 @@ func (g *Gateway) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := g.deps.Registry.Heartbeat(payload); err != nil {
-		writeError(w, http.StatusNotFound, "worker not found")
+		msg := err.Error()
+		switch {
+		case strings.Contains(msg, "not authorized"):
+			writeError(w, http.StatusForbidden, msg)
+		case strings.Contains(msg, "token"):
+			writeError(w, http.StatusUnauthorized, msg)
+		default:
+			writeError(w, http.StatusNotFound, msg)
+		}
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
