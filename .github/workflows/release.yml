@@ -22,10 +22,16 @@ jobs:
       - name: Build binaries
         run: |
           cd core
-          GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o ../dist/magic-linux-amd64 ./cmd/magic
-          GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o ../dist/magic-linux-arm64 ./cmd/magic
+          GOOS=linux  GOARCH=amd64 go build -ldflags="-s -w" -o ../dist/magic-linux-amd64  ./cmd/magic
+          GOOS=linux  GOARCH=arm64 go build -ldflags="-s -w" -o ../dist/magic-linux-arm64  ./cmd/magic
           GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o ../dist/magic-darwin-amd64 ./cmd/magic
           GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o ../dist/magic-darwin-arm64 ./cmd/magic
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum magic-linux-amd64 magic-linux-arm64 magic-darwin-amd64 magic-darwin-arm64 > checksums.sha256
+          cat checksums.sha256
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
