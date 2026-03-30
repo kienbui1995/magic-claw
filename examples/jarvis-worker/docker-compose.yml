@@ -1,0 +1,25 @@
+services:
+  magic:
+    image: ghcr.io/kienbui1995/magic:latest
+    ports:
+      - "18080:18080"
+    environment:
+      MAGIC_PORT: "18080"
+      MAGIC_API_KEY: "${MAGIC_API_KEY}"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:18080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  jarvis-worker:
+    build: .
+    environment:
+      MAGIC_URL: "http://magic:18080"
+      MAGIC_WORKER_TOKEN: "${MAGIC_WORKER_TOKEN}"
+      JARVIS_URL: "${JARVIS_URL}"
+      JARVIS_API_KEY: "${JARVIS_API_KEY}"
+    depends_on:
+      magic:
+        condition: service_healthy
+    restart: unless-stopped
