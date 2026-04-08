@@ -638,12 +638,21 @@ func (g *Gateway) handleListWebhooks(w http.ResponseWriter, r *http.Request) {
 // handleDeleteWebhook removes a webhook by ID.
 // DELETE /api/v1/orgs/{orgID}/webhooks/{webhookID}
 func (g *Gateway) handleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
+	orgID := r.PathValue("orgID")
 	webhookID := r.PathValue("webhookID")
+
+	// Verify org ownership before deleting
+	hook, err := g.deps.Store.GetWebhook(webhookID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "webhook not found")
+		return
+	}
+	if hook.OrgID != orgID {
+		writeError(w, http.StatusNotFound, "webhook not found")
+		return
+	}
+
 	if err := g.deps.Webhook.DeleteWebhook(webhookID); err != nil {
-		if err == store.ErrNotFound {
-			writeError(w, http.StatusNotFound, "webhook not found")
-			return
-		}
 		writeError(w, http.StatusInternalServerError, "failed to delete webhook")
 		return
 	}

@@ -11,11 +11,12 @@ import (
 )
 
 // supportedEvents is the set of event types that trigger webhook delivery.
+// These must match the Type strings published to the event bus.
 var supportedEvents = []string{
-	"task.complete", "task.fail", "task.assign",
-	"worker.register", "worker.deregister", "worker.offline",
-	"workflow.complete", "workflow.fail",
-	"budget.threshold_reached",
+	"task.completed", "task.failed", "task.dispatched",
+	"worker.registered", "worker.deregistered",
+	"workflow.completed", "workflow.failed",
+	"budget.threshold", "budget.exceeded",
 }
 
 // Manager subscribes to the event bus and enqueues WebhookDelivery records.

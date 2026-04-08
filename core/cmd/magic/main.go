@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -60,12 +61,19 @@ func runServer() {
 	switch {
 	case os.Getenv("MAGIC_POSTGRES_URL") != "":
 		pgURL := os.Getenv("MAGIC_POSTGRES_URL")
-		// Support pool size config appended to URL
+		// Support pool size config via URL query params.
+		// Use ? if no query string exists, & otherwise.
+		sep := func() string {
+			if strings.Contains(pgURL, "?") {
+				return "&"
+			}
+			return "?"
+		}
 		if min := os.Getenv("MAGIC_POSTGRES_POOL_MIN"); min != "" {
-			pgURL += "&pool_min_conns=" + min
+			pgURL += sep() + "pool_min_conns=" + min
 		}
 		if max := os.Getenv("MAGIC_POSTGRES_POOL_MAX"); max != "" {
-			pgURL += "&pool_max_conns=" + max
+			pgURL += sep() + "pool_max_conns=" + max
 		}
 		if err := store.RunMigrations(pgURL); err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to run migrations: %v\n", err)
