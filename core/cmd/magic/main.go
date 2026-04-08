@@ -53,18 +53,40 @@ func runServer() {
 		log.Fatalf("[security] MAGIC_API_KEY must be at least 32 characters (got %d). Generate one with: openssl rand -hex 32", len(apiKey))
 	}
 
-	// Store
+	// Store — auto-detect backend from env vars
 	var s store.Store
-	storePath := os.Getenv("MAGIC_STORE")
-	if storePath != "" {
-		sqliteStore, err := store.NewSQLiteStore(storePath)
+	switch {
+	case os.Getenv("MAGIC_POSTGRES_URL") != "":
+		pgURL := os.Getenv("MAGIC_POSTGRES_URL")
+		// Support pool size config appended to URL
+		if min := os.Getenv("MAGIC_POSTGRES_POOL_MIN"); min != "" {
+			pgURL += "&pool_min_conns=" + min
+		}
+		if max := os.Getenv("MAGIC_POSTGRES_POOL_MAX"); max != "" {
+			pgURL += "&pool_max_conns=" + max
+		}
+		if err := store.RunMigrations(pgURL); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to run migrations: %v\n", err)
+			os.Exit(1)
+		}
+		pgStore, err := store.NewPostgreSQLStore(context.Background(), pgURL)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to connect to PostgreSQL: %v\n", err)
+			os.Exit(1)
+		}
+		s = pgStore
+		fmt.Println("  Storage: PostgreSQL")
+	case os.Getenv("MAGIC_STORE") != "":
+		sqliteStore, err := store.NewSQLiteStore(os.Getenv("MAGIC_STORE"))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to open store: %v\n", err)
 			os.Exit(1)
 		}
 		s = sqliteStore
-	} else {
+		fmt.Printf("  Storage: SQLite (%s)\n", os.Getenv("MAGIC_STORE"))
+	default:
 		s = store.NewMemoryStore()
+		fmt.Println("  Storage: in-memory (set MAGIC_STORE=path.db or MAGIC_POSTGRES_URL for persistence)")
 	}
 
 	// Core
@@ -127,9 +149,6 @@ func runServer() {
 			fmt.Println("  Authentication: enabled (MAGIC_API_KEY)")
 		} else {
 			fmt.Println("  Authentication: disabled (set MAGIC_API_KEY to enable)")
-		}
-		if os.Getenv("MAGIC_STORE") == "" {
-			fmt.Println("  Storage: in-memory (set MAGIC_STORE=path.db for persistence)")
 		}
 		fmt.Println("  POST /api/v1/workers/register  — Register a worker")
 		fmt.Println("  GET  /api/v1/workers           — List workers")
