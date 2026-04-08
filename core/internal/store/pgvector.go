@@ -7,14 +7,11 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/kienbui1995/magic/core/internal/vectortypes"
 )
 
-// PGVectorStore implements vectortypes.VectorStore (= knowledge.VectorStore) using
-// PostgreSQL pgvector extension.
+// PGVectorStore implements VectorStore using PostgreSQL pgvector extension.
 // The schema is created by migration 002_pgvector.up.sql.
-// The table: knowledge_embeddings(id TEXT, vector vector(N), meta JSONB)
+// Table: knowledge_embeddings(id TEXT, vector vector(N), meta JSONB)
 type PGVectorStore struct {
 	pool *pgxpool.Pool
 	dim  int // embedding dimension, default 1536
@@ -22,8 +19,7 @@ type PGVectorStore struct {
 
 // NewPGVectorStore creates a new PGVectorStore.
 // dim must match the dimension set at table creation time (migration 002_pgvector).
-// Default dimension is 1536 (matches text-embedding-3-small).
-// IMPORTANT: Changing dim after table creation requires recreating the table.
+// Default: 1536 (text-embedding-3-small). Changing dim requires recreating the table.
 func NewPGVectorStore(pool *pgxpool.Pool, dim int) *PGVectorStore {
 	if dim <= 0 {
 		dim = 1536
@@ -51,8 +47,8 @@ func (s *PGVectorStore) Upsert(id string, vector []float32, meta map[string]any)
 }
 
 // Search returns the top-K knowledge entries most similar to queryVector.
-// Score is 1 - cosine_distance (1.0 = identical, 0.0 = orthogonal).
-func (s *PGVectorStore) Search(queryVector []float32, topK int) ([]vectortypes.SearchResult, error) {
+// Score is 1 - cosine_distance: 1.0 = identical, 0.0 = orthogonal.
+func (s *PGVectorStore) Search(queryVector []float32, topK int) ([]VectorSearchResult, error) {
 	if len(queryVector) != s.dim {
 		return nil, fmt.Errorf("query vector dimension mismatch: got %d, want %d", len(queryVector), s.dim)
 	}
@@ -71,7 +67,7 @@ func (s *PGVectorStore) Search(queryVector []float32, topK int) ([]vectortypes.S
 	}
 	defer rows.Close()
 
-	var results []vectortypes.SearchResult
+	var results []VectorSearchResult
 	for rows.Next() {
 		var id string
 		var metaJSON []byte
@@ -81,7 +77,7 @@ func (s *PGVectorStore) Search(queryVector []float32, topK int) ([]vectortypes.S
 		}
 		var meta map[string]any
 		_ = json.Unmarshal(metaJSON, &meta)
-		results = append(results, vectortypes.SearchResult{ID: id, Score: score, Metadata: meta})
+		results = append(results, VectorSearchResult{ID: id, Score: score, Metadata: meta})
 	}
 	return results, nil
 }
@@ -109,4 +105,4 @@ func encodeVector(v []float32) string {
 }
 
 // Compile-time interface check.
-var _ vectortypes.VectorStore = (*PGVectorStore)(nil)
+var _ VectorStore = (*PGVectorStore)(nil)
