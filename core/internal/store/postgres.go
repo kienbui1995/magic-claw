@@ -141,7 +141,7 @@ func (s *PostgreSQLStore) ListWorkersByOrg(orgID string) []*protocol.Worker {
 		return s.ListWorkers()
 	}
 	workers, _ := pgList[protocol.Worker](s.pool,
-		"SELECT data FROM workers WHERE data->>'org_id' = $1", orgID)
+		"SELECT data FROM workers WHERE data->>'org_id' = $1 ORDER BY id", orgID)
 	return workers
 }
 
@@ -185,8 +185,9 @@ func (s *PostgreSQLStore) ListTasksByOrg(orgID string) []*protocol.Task {
 	if orgID == "" {
 		return s.ListTasks()
 	}
+	// Tasks without context.org_id are excluded (they have no org association).
 	tasks, _ := pgList[protocol.Task](s.pool,
-		"SELECT data FROM tasks WHERE data->'context'->>'org_id' = $1", orgID)
+		"SELECT data FROM tasks WHERE data->'context'->>'org_id' = $1 ORDER BY id", orgID)
 	return tasks
 }
 
