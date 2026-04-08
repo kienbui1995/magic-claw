@@ -103,7 +103,7 @@ func runServer() {
 	disp := dispatcher.New(s, bus, cc, ev)
 	orch := orchestrator.New(s, rt, bus, disp)
 	mgr := orgmgr.New(s, bus)
-	kb := knowledge.New(s, bus)
+	kb := knowledge.New(s, bus, nil)
 
 	// Audit logger — subscribes to events and records them
 	auditLogger := audit.New(s, bus)
