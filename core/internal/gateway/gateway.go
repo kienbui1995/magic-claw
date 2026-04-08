@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/time/rate"
 
 	"github.com/kienbui1995/magic/core/internal/costctrl"
@@ -65,6 +66,9 @@ func (g *Gateway) Handler() http.Handler {
 		return r.PathValue("orgID")
 	})
 	taskRL := rateLimitMiddleware(taskLimiter, clientIP)
+
+	// Prometheus metrics — no auth (Prometheus scrapers don't send Bearer tokens)
+	mux.Handle("GET /metrics", promhttp.Handler())
 
 	// Health
 	mux.HandleFunc("GET /health", g.handleHealth)

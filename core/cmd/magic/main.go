@@ -183,6 +183,7 @@ func runServer() {
 		fmt.Println("  POST /api/v1/knowledge/{id}/embedding — Store embedding")
 		fmt.Println("  POST /api/v1/knowledge/search/semantic — Semantic search")
 		fmt.Println("  GET  /api/v1/metrics           — View stats")
+		fmt.Println("  GET  /metrics                  — Prometheus metrics (no auth)")
 		fmt.Println("  GET  /health                   — Health check")
 		fmt.Println("  POST /api/v1/orgs/{orgID}/webhooks — Register webhook")
 
