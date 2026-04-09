@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kienbui1995/magic/core/internal/monitor"
 	"github.com/kienbui1995/magic/core/internal/protocol"
 	"github.com/kienbui1995/magic/core/internal/store"
 )
@@ -586,6 +587,13 @@ func (g *Gateway) handleStreamTask(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
+
+	monitor.MetricStreamsActive.Inc()
+	streamStart := time.Now()
+	defer func() {
+		monitor.MetricStreamsActive.Dec()
+		monitor.MetricStreamDuration.Observe(time.Since(streamStart).Seconds())
+	}()
 
 	rc := http.NewResponseController(w)
 	if err := rc.SetWriteDeadline(time.Time{}); err != nil {
