@@ -1,7 +1,7 @@
 # MagiC
 
 [![CI](https://github.com/kienbui1995/magic/actions/workflows/ci.yml/badge.svg)](https://github.com/kienbui1995/magic/actions/workflows/ci.yml)
-[![Go 1.24+](https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go)](https://go.dev)
+[![Go 1.25+](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go)](https://go.dev)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python)](https://python.org)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
@@ -20,9 +20,41 @@ ContentBot  SEOBot  LeadBot  CodeBot
 
 ## Quick Start (< 5 minutes)
 
-### Option A: From source
+### Option A: pip install (fastest)
 
-**Prerequisites:** Go 1.24+, Python 3.11+
+```bash
+pip install magic-claw
+```
+
+Then create `worker.py`:
+
+```python
+from magic_ai_sdk import Worker
+
+worker = Worker(name="HelloBot", endpoint="http://localhost:9000")
+
+@worker.capability("greeting", description="Says hello")
+def greet(name: str) -> str:
+    return f"Hello, {name}! Managed by MagiC."
+
+worker.register("http://localhost:8080")
+worker.serve()
+```
+
+```bash
+python worker.py  # Registered and serving on :9000
+```
+
+Submit a task:
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"type":"greeting","input":{"name":"World"}}'
+```
+
+### Option B: From source
+
+**Prerequisites:** Go 1.25+, Python 3.11+
 
 ```bash
 # 1. Clone and build
@@ -37,14 +69,14 @@ cd core && go build -o ../bin/magic ./cmd/magic && cd ..
 cd sdk/python && pip install -e . && cd ../..
 ```
 
-### Option B: Docker
+### Option C: Docker
 
 ```bash
 docker build -t magic .
 docker run -p 8080:8080 magic
 ```
 
-### Option C: One-click cloud deploy
+### Option D: One-click cloud deploy
 
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/magic)
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
@@ -200,6 +232,13 @@ python examples/multi-worker/main.py
 | `POST` | `/api/v1/knowledge` | Add knowledge entry |
 | `GET` | `/api/v1/knowledge?q=<query>` | Search knowledge |
 | `GET` | `/api/v1/metrics` | System metrics |
+| `POST` | `/api/v1/tasks/stream` | Submit task + stream result as SSE |
+| `GET` | `/api/v1/tasks/{id}/stream` | Re-subscribe to task SSE stream |
+| `POST` | `/api/v1/knowledge/{id}/embedding` | Store vector embedding (pgvector) |
+| `POST` | `/api/v1/knowledge/search/semantic` | Semantic similarity search |
+| `POST` | `/api/v1/orgs/{orgID}/webhooks` | Register webhook |
+| `GET` | `/api/v1/orgs/{orgID}/webhooks` | List webhooks |
+| `GET` | `/metrics` | Prometheus metrics (no auth) |
 
 ## Multi-Step Workflows (DAG)
 
@@ -240,6 +279,9 @@ Failure handling per step: `retry`, `skip`, `abort`, `reassign`.
 | `MAGIC_API_KEY` | _(empty = no auth)_ | API key — **minimum 32 characters** (`openssl rand -hex 32`) |
 | `MAGIC_CORS_ORIGIN` | _(none)_ | Allowed CORS origin (e.g. `https://yourdomain.com`) |
 | `MAGIC_RATE_LIMIT_DISABLE` | `false` | Set `true` to disable rate limiting (dev/testing only) |
+| `MAGIC_POSTGRES_URL` | _(empty)_ | PostgreSQL connection URL (enables PostgreSQL backend) |
+| `MAGIC_STORE` | _(empty)_ | SQLite file path (e.g. `./magic.db`) |
+| `MAGIC_PGVECTOR_DIM` | `1536` | Embedding dimension for semantic search |
 
 ### Rate Limiting
 
@@ -273,7 +315,8 @@ magic/
 │   ├── cmd/magic/main.go           # CLI entrypoint
 │   └── internal/
 │       ├── protocol/               # MCP² types & messages
-│       ├── store/                  # Storage interface + in-memory
+│       ├── store/                  # Storage interface + Memory/SQLite/PostgreSQL
+│       │   └── migrations/         # golang-migrate SQL migrations
 │       ├── events/                 # Event bus (pub/sub)
 │       ├── gateway/                # HTTP server + middleware
 │       ├── registry/               # Worker registration
@@ -284,8 +327,10 @@ magic/
 │       ├── evaluator/              # Output validation
 │       ├── costctrl/               # Budget tracking
 │       ├── orgmgr/                 # Team management
-│       └── knowledge/              # Knowledge hub
-├── sdk/python/                     # Python SDK (pip install magic-ai-sdk)
+│       ├── knowledge/              # Knowledge hub
+│       ├── webhook/                # At-least-once webhook delivery
+│       └── audit/                  # Structured audit log
+├── sdk/python/                     # Python SDK (pip install magic-claw)
 │   ├── magic_ai_sdk/
 │   │   ├── worker.py               # Worker class
 │   │   ├── client.py               # HTTP client
@@ -323,24 +368,30 @@ python -m venv .venv && .venv/bin/pip install -e ".[dev]"
 
 ## Tech Stack
 
-- **Core:** Go 1.24+ (goroutines, small binary, K8s/Docker precedent)
+- **Core:** Go 1.25+ (goroutines, small binary, K8s/Docker precedent)
 - **SDK:** Python 3.11+ (AI/ML ecosystem)
-- **Protocol:** MCP² — JSON over HTTP (WebSocket/gRPC planned)
-- **Storage:** In-memory (SQLite/PostgreSQL planned)
+- **Protocol:** MCP² — JSON over HTTP
+- **Storage:** Memory (dev) · SQLite (file) · PostgreSQL (production)
+- **Observability:** Prometheus metrics (`GET /metrics`) + structured JSON logging
 - **License:** Apache 2.0
 
 ## Roadmap
 
 - [x] Foundation — Gateway, Registry, Router, Monitor
 - [x] Differentiators — Orchestrator, Evaluator, Cost Controller, Org Manager
-- [x] Knowledge Hub — Shared knowledge base
-- [x] HTTP Dispatch — Actual task execution via worker endpoints
-- [x] Security — API key auth, SSRF protection, body limits
-- [x] Docker — Multi-stage Dockerfile
-- [ ] Go SDK — Native Go workers
-- [ ] Persistent storage — SQLite/PostgreSQL
-- [ ] WebSocket — Real-time worker communication
+- [x] Knowledge Hub — Shared knowledge base + pgvector semantic search
+- [x] HTTP Dispatch — Task execution via worker HTTP endpoints
+- [x] Security — API key auth, worker tokens, SSRF protection, audit log
+- [x] Docker — Multi-stage Dockerfile, Railway/Render/Fly deploy
+- [x] Go SDK — Native Go workers (`sdk/go/`)
+- [x] Persistent storage — SQLite + PostgreSQL with auto-migrations
+- [x] SSE Streaming — Real-time task output streaming
+- [x] Webhooks — At-least-once event delivery with HMAC-SHA256
+- [x] Prometheus metrics — Full observability via `/metrics`
 - [x] Dashboard — Web UI for monitoring
+- [ ] VitePress docs site
+- [ ] Docker Hub image
+- [ ] SaaS managed platform
 
 ## License
 
