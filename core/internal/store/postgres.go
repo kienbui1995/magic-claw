@@ -413,39 +413,45 @@ func (s *PostgreSQLStore) AppendAudit(e *protocol.AuditEntry) error {
 }
 
 func (s *PostgreSQLStore) QueryAudit(filter AuditFilter) []*protocol.AuditEntry {
-	all, _ := pgList[protocol.AuditEntry](s.pool, "SELECT data FROM audit_log ORDER BY id DESC")
-	var result []*protocol.AuditEntry
-	for _, e := range all {
-		if filter.OrgID != "" && e.OrgID != filter.OrgID {
-			continue
-		}
-		if filter.WorkerID != "" && e.WorkerID != filter.WorkerID {
-			continue
-		}
-		if filter.Action != "" && e.Action != filter.Action {
-			continue
-		}
-		if filter.StartTime != nil && e.Timestamp.Before(*filter.StartTime) {
-			continue
-		}
-		if filter.EndTime != nil && e.Timestamp.After(*filter.EndTime) {
-			continue
-		}
-		result = append(result, e)
+	query := "SELECT data FROM audit_log WHERE 1=1"
+	args := []any{}
+	i := 1
+
+	if filter.OrgID != "" {
+		query += fmt.Sprintf(" AND data->>'org_id' = $%d", i)
+		args = append(args, filter.OrgID)
+		i++
 	}
+	if filter.WorkerID != "" {
+		query += fmt.Sprintf(" AND data->>'worker_id' = $%d", i)
+		args = append(args, filter.WorkerID)
+		i++
+	}
+	if filter.Action != "" {
+		query += fmt.Sprintf(" AND data->>'action' = $%d", i)
+		args = append(args, filter.Action)
+		i++
+	}
+	if filter.StartTime != nil {
+		query += fmt.Sprintf(" AND (data->>'timestamp')::timestamptz >= $%d", i)
+		args = append(args, *filter.StartTime)
+		i++
+	}
+	if filter.EndTime != nil {
+		query += fmt.Sprintf(" AND (data->>'timestamp')::timestamptz <= $%d", i)
+		args = append(args, *filter.EndTime)
+		i++
+	}
+
 	limit := filter.Limit
 	if limit <= 0 {
 		limit = 100
 	}
-	offset := filter.Offset
-	if offset >= len(result) {
-		return nil
-	}
-	result = result[offset:]
-	if len(result) > limit {
-		result = result[:limit]
-	}
-	return result
+	query += fmt.Sprintf(" ORDER BY id DESC LIMIT $%d OFFSET $%d", i, i+1)
+	args = append(args, limit, filter.Offset)
+
+	entries, _ := pgList[protocol.AuditEntry](s.pool, query, args...)
+	return entries
 }
 
 // --- Webhook stubs (full implementation in Phase 3b Task 4) ---
