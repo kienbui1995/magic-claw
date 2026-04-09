@@ -32,14 +32,19 @@ func New(s store.Store, bus *events.Bus) *Controller {
 }
 
 func (c *Controller) RecordCost(workerID, taskID string, cost float64) {
+	// Hold mu for the entire read-modify-write to prevent concurrent RecordCost
+	// calls from racing on TotalCostToday (read + add + write must be atomic).
 	c.mu.Lock()
 	c.records = append(c.records, CostRecord{WorkerID: workerID, TaskID: taskID, Cost: cost})
-	c.mu.Unlock()
-
 	w, err := c.store.GetWorker(workerID)
 	if err == nil {
 		w.TotalCostToday += cost
 		c.store.UpdateWorker(w) //nolint:errcheck
+	}
+	c.mu.Unlock()
+
+	// checkBudget and Publish outside the lock (they may block or publish events).
+	if err == nil {
 		c.checkBudget(w)
 	}
 

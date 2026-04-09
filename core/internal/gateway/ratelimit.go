@@ -15,6 +15,11 @@ func rateLimitingEnabled() bool {
 	return os.Getenv("MAGIC_RATE_LIMIT_DISABLE") != "true"
 }
 
+// maxLimiters caps the number of tracked IPs to prevent memory exhaustion
+// under DDoS with unique spoofed IPs. Entries for active IPs are preserved;
+// the oldest entry is evicted when the cap is hit.
+const maxLimiters = 10_000
+
 // limiterStore holds per-key token-bucket limiters with LRU-like cleanup.
 type limiterStore struct {
 	mu       sync.Mutex
@@ -43,6 +48,18 @@ func (ls *limiterStore) get(key string) *rate.Limiter {
 	defer ls.mu.Unlock()
 	e, ok := ls.limiters[key]
 	if !ok {
+		// Evict oldest entry if we've hit the cap — prevents memory exhaustion
+		// under DDoS with many unique IPs.
+		if len(ls.limiters) >= maxLimiters {
+			var oldest string
+			var oldestTime time.Time
+			for k, v := range ls.limiters {
+				if oldest == "" || v.lastSeen.Before(oldestTime) {
+					oldest, oldestTime = k, v.lastSeen
+				}
+			}
+			delete(ls.limiters, oldest)
+		}
 		e = &entry{limiter: rate.NewLimiter(ls.r, ls.b)}
 		ls.limiters[key] = e
 	}
