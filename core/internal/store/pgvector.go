@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -32,7 +33,10 @@ func (s *PGVectorStore) Upsert(id string, vector []float32, meta map[string]any)
 	if len(vector) != s.dim {
 		return fmt.Errorf("vector dimension mismatch: got %d, want %d", len(vector), s.dim)
 	}
-	vecStr := encodeVector(vector)
+	vecStr, err := encodeVector(vector)
+	if err != nil {
+		return err
+	}
 	metaJSON, err := json.Marshal(meta)
 	if err != nil {
 		return err
@@ -55,7 +59,10 @@ func (s *PGVectorStore) Search(queryVector []float32, topK int) ([]VectorSearchR
 	if topK <= 0 {
 		topK = 10
 	}
-	vecStr := encodeVector(queryVector)
+	vecStr, err := encodeVector(queryVector)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := s.pool.Query(context.Background(),
 		`SELECT id, meta, 1 - (vector <=> $1::vector) AS score
          FROM knowledge_embeddings
@@ -96,12 +103,16 @@ func (s *PGVectorStore) Delete(id string) error {
 }
 
 // encodeVector formats a []float32 slice as pgvector literal: "[x,y,z,...]"
-func encodeVector(v []float32) string {
+// Returns an error if any value is NaN or Inf — pgvector does not support these.
+func encodeVector(v []float32) (string, error) {
 	parts := make([]string, len(v))
 	for i, f := range v {
+		if math.IsNaN(float64(f)) || math.IsInf(float64(f), 0) {
+			return "", fmt.Errorf("invalid vector value at index %d: %v (NaN/Inf not supported by pgvector)", i, f)
+		}
 		parts[i] = fmt.Sprintf("%g", f)
 	}
-	return "[" + strings.Join(parts, ",") + "]"
+	return "[" + strings.Join(parts, ",") + "]", nil
 }
 
 // Compile-time interface check.

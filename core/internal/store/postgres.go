@@ -466,9 +466,11 @@ func (s *PostgreSQLStore) ListWebhooksByOrg(orgID string) []*protocol.Webhook {
 	return hooks
 }
 func (s *PostgreSQLStore) FindWebhooksByEvent(eventType string) []*protocol.Webhook {
+	// Use json.Marshal to safely build the JSONB array — never concat eventType directly.
+	eventJSON, _ := json.Marshal([]string{eventType})
 	hooks, _ := pgList[protocol.Webhook](s.pool,
 		`SELECT data FROM webhooks WHERE data->>'active' = 'true' AND data->'events' @> $1::jsonb`,
-		`["`+eventType+`"]`)
+		string(eventJSON))
 	return hooks
 }
 func (s *PostgreSQLStore) AddWebhookDelivery(d *protocol.WebhookDelivery) error {

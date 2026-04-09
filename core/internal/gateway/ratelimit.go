@@ -67,6 +67,12 @@ func (ls *limiterStore) cleanup() {
 }
 
 // clientIP extracts the real client IP, respecting X-Forwarded-For from trusted proxies.
+//
+// SECURITY ASSUMPTION: This trusts X-Forwarded-For unconditionally.
+// Direct access to port 8080 would allow attackers to spoof the IP and bypass
+// per-IP rate limits. In production, ensure the server is only reachable via
+// a trusted reverse proxy (e.g. Cloudflare Tunnel, nginx) and port 8080 is
+// not exposed directly to the internet.
 func clientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 		// Take first IP in the chain (closest to client)
