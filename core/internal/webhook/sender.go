@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/kienbui1995/magic/core/internal/monitor"
 	"github.com/kienbui1995/magic/core/internal/protocol"
 	"github.com/kienbui1995/magic/core/internal/store"
 )
@@ -91,7 +92,10 @@ func (s *Sender) deliver(d *protocol.WebhookDelivery, hook *protocol.Webhook) {
 		req.Header.Set("X-MagiC-Signature", "sha256="+sig)
 	}
 
+	start := time.Now()
 	resp, err := s.client.Do(req)
+	monitor.MetricWebhookDeliveryDuration.Observe(time.Since(start).Seconds())
+
 	if err != nil || resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		statusCode := 0
 		if resp != nil {
@@ -100,11 +104,13 @@ func (s *Sender) deliver(d *protocol.WebhookDelivery, hook *protocol.Webhook) {
 		}
 		log.Printf("[webhook] delivery %s failed (attempt %d): status=%d err=%v",
 			d.ID, d.Attempts+1, statusCode, err)
+		monitor.MetricWebhookDeliveriesTotal.WithLabelValues("failed").Inc()
 		s.markFailed(d)
 		return
 	}
 	resp.Body.Close()
 
+	monitor.MetricWebhookDeliveriesTotal.WithLabelValues("delivered").Inc()
 	d.Status = protocol.DeliveryDelivered
 	d.Attempts++
 	d.UpdatedAt = time.Now()
@@ -129,6 +135,7 @@ func (s *Sender) markFailed(d *protocol.WebhookDelivery) {
 }
 
 func (s *Sender) markDead(d *protocol.WebhookDelivery) {
+	monitor.MetricWebhookDeliveriesTotal.WithLabelValues("dead").Inc()
 	d.Status = protocol.DeliveryDead
 	d.UpdatedAt = time.Now()
 	s.store.UpdateWebhookDelivery(d) //nolint:errcheck

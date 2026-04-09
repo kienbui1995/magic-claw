@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kienbui1995/magic/core/internal/monitor"
 	"golang.org/x/time/rate"
 )
 
@@ -98,6 +99,7 @@ func rateLimitMiddleware(ls *limiterStore, keyFn func(*http.Request) string) fun
 			}
 			key := keyFn(r)
 			if !ls.get(key).Allow() {
+				monitor.MetricRateLimitHitsTotal.WithLabelValues(r.URL.Path).Inc()
 				writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
 				return
 			}
