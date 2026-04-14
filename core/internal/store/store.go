@@ -103,4 +103,16 @@ type Store interface {
 	UpdatePolicy(p *protocol.Policy) error
 	RemovePolicy(id string) error
 	ListPoliciesByOrg(orgID string) []*protocol.Policy
+
+	// Dead Letter Queue
+	AddDLQEntry(e *protocol.DLQEntry) error
+	ListDLQ() []*protocol.DLQEntry
+
+	// Prompts
+	AddPrompt(p *protocol.PromptTemplate) error
+	ListPrompts() []*protocol.PromptTemplate
+
+	// Agent Memory
+	AddMemoryTurn(sessionID string, turn *protocol.MemoryTurn) error
+	GetMemoryTurns(sessionID string) []*protocol.MemoryTurn
 }

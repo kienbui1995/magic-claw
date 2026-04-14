@@ -3,6 +3,7 @@ package costctrl
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/kienbui1995/magic/core/internal/events"
 	"github.com/kienbui1995/magic/core/internal/protocol"
@@ -51,24 +52,69 @@ func New(s store.Store, bus *events.Bus) *Controller {
 	return c
 }
 
+// StartDailyReset runs a background goroutine that resets TotalCostToday
+// for all workers at midnight UTC. Returns a stop function.
+func (c *Controller) StartDailyReset() func() {
+	stop := make(chan struct{})
+	go func() {
+		for {
+			now := time.Now().UTC()
+			midnight := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, time.UTC)
+			timer := time.NewTimer(midnight.Sub(now))
+			select {
+			case <-timer.C:
+				c.resetDailyCosts()
+			case <-stop:
+				timer.Stop()
+				return
+			}
+		}
+	}()
+	return func() { close(stop) }
+}
+
+func (c *Controller) resetDailyCosts() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for _, w := range c.store.ListWorkers() {
+		if w.TotalCostToday > 0 {
+			w.TotalCostToday = 0
+			if w.Status == protocol.StatusPaused {
+				w.Status = protocol.StatusActive
+			}
+			c.store.UpdateWorker(w) //nolint:errcheck
+		}
+	}
+	c.bus.Publish(events.Event{
+		Type: "cost.daily_reset", Source: "costctrl",
+		Payload: map[string]any{"time": time.Now().UTC().Format(time.RFC3339)},
+	})
+}
+
 // RegisterPolicy adds a custom cost policy plugin.
 func (c *Controller) RegisterPolicy(p CostPolicy) {
 	c.policies = append(c.policies, p)
 }
 
+const maxCostRecords = 50_000
+
 func (c *Controller) RecordCost(workerID, taskID string, cost float64) {
 	c.mu.Lock()
 	c.records = append(c.records, CostRecord{WorkerID: workerID, TaskID: taskID, Cost: cost})
+	if len(c.records) > maxCostRecords {
+		c.records = c.records[len(c.records)-maxCostRecords:]
+	}
+	// Atomic read-modify-write under lock to prevent lost updates
 	w, err := c.store.GetWorker(workerID)
 	if err == nil {
 		w.TotalCostToday += cost
 		c.store.UpdateWorker(w) //nolint:errcheck
 	}
-	c.mu.Unlock()
-
+	// Apply policies while still holding lock to prevent concurrent budget checks
 	if err == nil {
 		c.applyPolicies(w, cost)
 	}
+	c.mu.Unlock()
 
 	c.bus.Publish(events.Event{
 		Type: "cost.recorded", Source: "costctrl",

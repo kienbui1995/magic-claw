@@ -87,4 +87,9 @@ var (
 		Help:    "Duration of SSE streaming connections.",
 		Buckets: []float64{1, 5, 10, 30, 60, 120, 300},
 	})
+
+	MetricEventsDroppedTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "magic_events_dropped_total",
+		Help: "Total number of events dropped due to full buffer.",
+	})
 )

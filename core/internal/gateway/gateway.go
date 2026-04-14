@@ -1,7 +1,9 @@
 package gateway
 
 import (
+	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -12,10 +14,13 @@ import (
 	"github.com/kienbui1995/magic/core/internal/evaluator"
 	"github.com/kienbui1995/magic/core/internal/events"
 	"github.com/kienbui1995/magic/core/internal/knowledge"
+	"github.com/kienbui1995/magic/core/internal/llm"
+	"github.com/kienbui1995/magic/core/internal/memory"
 	"github.com/kienbui1995/magic/core/internal/monitor"
 	"github.com/kienbui1995/magic/core/internal/orchestrator"
 	"github.com/kienbui1995/magic/core/internal/orgmgr"
 	"github.com/kienbui1995/magic/core/internal/policy"
+	"github.com/kienbui1995/magic/core/internal/prompt"
 	"github.com/kienbui1995/magic/core/internal/rbac"
 	"github.com/kienbui1995/magic/core/internal/registry"
 	"github.com/kienbui1995/magic/core/internal/router"
@@ -39,6 +44,11 @@ type Deps struct {
 	Webhook      *webhook.Manager
 	RBAC         *rbac.Enforcer     // nil = no RBAC
 	Policy       *policy.Engine     // nil = no policy enforcement
+	ShutdownCtx  context.Context    // cancelled on server shutdown
+	DispatchWG   *sync.WaitGroup    // tracks in-flight dispatches
+	LLM          *llm.Gateway       // nil = LLM features disabled
+	Prompts      *prompt.Registry   // nil = prompt features disabled
+	Memory       *memory.Store      // nil = memory features disabled
 }
 
 // Gateway is the HTTP entry point for the MagiC server.
@@ -156,6 +166,23 @@ func (g *Gateway) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/orgs/{orgID}/policies/{policyID}", g.handleGetPolicy)
 	mux.HandleFunc("PUT /api/v1/orgs/{orgID}/policies/{policyID}", g.handleUpdatePolicy)
 	mux.HandleFunc("DELETE /api/v1/orgs/{orgID}/policies/{policyID}", g.handleDeletePolicy)
+
+	// Dead Letter Queue
+	mux.HandleFunc("GET /api/v1/dlq", g.handleListDLQ)
+
+	// LLM Gateway
+	mux.HandleFunc("POST /api/v1/llm/chat", g.handleLLMChat)
+	mux.HandleFunc("GET /api/v1/llm/models", g.handleLLMModels)
+
+	// Prompts
+	mux.HandleFunc("POST /api/v1/prompts", g.handleAddPrompt)
+	mux.HandleFunc("GET /api/v1/prompts", g.handleListPrompts)
+	mux.HandleFunc("POST /api/v1/prompts/render", g.handleRenderPrompt)
+
+	// Agent Memory
+	mux.HandleFunc("POST /api/v1/memory/turns", g.handleAddTurn)
+	mux.HandleFunc("GET /api/v1/memory/turns", g.handleGetTurns)
+	mux.HandleFunc("POST /api/v1/memory/entries", g.handleAddMemoryEntry)
 
 	var handler http.Handler = mux
 	handler = rbacMiddleware(g.deps.RBAC)(handler)

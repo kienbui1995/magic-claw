@@ -1,0 +1,22 @@
+# MagiC Server Configuration
+# Environment variables override these values.
+
+port: "8080"
+# api_key: "your-32-char-api-key-here"
+
+store:
+  driver: memory  # memory, sqlite, postgres
+  # sqlite_path: magic.db
+  # postgres_url: postgres://localhost:5432/magic?sslmode=disable
+
+llm:
+  openai:
+    api_key: ""       # or set OPENAI_API_KEY env var
+    base_url: ""      # custom endpoint (e.g., Azure OpenAI)
+  anthropic:
+    api_key: ""       # or set ANTHROPIC_API_KEY env var
+  ollama:
+    url: ""           # e.g., http://localhost:11434
+
+cors_origin: ""       # e.g., http://localhost:3000
+trusted_proxy: false  # set true when behind nginx/cloudflare

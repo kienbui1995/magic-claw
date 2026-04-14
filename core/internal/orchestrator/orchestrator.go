@@ -20,11 +20,19 @@ type Orchestrator struct {
 	bus        *events.Bus
 	dispatcher *dispatcher.Dispatcher
 	mu         sync.Mutex // protects workflow state transitions
+	ctx        context.Context // shutdown context
+	wg         sync.WaitGroup  // tracks in-flight step dispatches
 }
 
 func New(s store.Store, rt *router.Router, bus *events.Bus, disp *dispatcher.Dispatcher) *Orchestrator {
-	return &Orchestrator{store: s, router: rt, bus: bus, dispatcher: disp}
+	return &Orchestrator{store: s, router: rt, bus: bus, dispatcher: disp, ctx: context.Background()}
 }
+
+// SetShutdownContext sets the context used for step dispatches.
+func (o *Orchestrator) SetShutdownContext(ctx context.Context) { o.ctx = ctx }
+
+// Wait blocks until all in-flight step dispatches complete.
+func (o *Orchestrator) Wait() { o.wg.Wait() }
 
 func (o *Orchestrator) Submit(name string, steps []protocol.WorkflowStep, ctx protocol.TaskContext) (*protocol.Workflow, error) {
 	if err := ValidateDAG(steps); err != nil {
@@ -247,8 +255,10 @@ func (o *Orchestrator) dispatchStep(wf *protocol.Workflow, step *protocol.Workfl
 
 	// Dispatch to worker asynchronously
 	if o.dispatcher != nil {
+		o.wg.Add(1)
 		go func() {
-			err := o.dispatcher.Dispatch(context.Background(), task, worker)
+			defer o.wg.Done()
+			err := o.dispatcher.Dispatch(o.ctx, task, worker)
 			if err != nil {
 				o.FailStep(wf.ID, task.ID, protocol.TaskError{Code: "dispatch_error", Message: err.Error()}) //nolint:errcheck
 			} else {

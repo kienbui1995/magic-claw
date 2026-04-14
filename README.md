@@ -7,19 +7,25 @@
 
 > Don't build another AI. Manage the ones you have.
 
-MagiC is an open-source framework for managing fleets of AI workers. Think **Kubernetes for AI agents** — it doesn't build agents, it manages any agents built with any tool (CrewAI, LangChain, custom bots, etc.) through an open protocol.
+MagiC is an **AI-native framework** for building and managing fleets of AI agents. It provides the infrastructure layer that every AI application needs: **LLM gateway** (multi-provider routing, cost tracking), **prompt management** (versioned templates, A/B testing), **agent memory** (conversation history, vector recall), and **worker orchestration** (DAG workflows, capability-based routing).
 
-> **[👉 Try the live demo](https://magic-team-assistant.streamlit.app)** — see MagiC in action, no setup required
->
-> **[📱 Mobile app](https://magic-learning-mobile.vercel.app)** — AI-powered learning on your phone
+Unlike generic task queues, MagiC is purpose-built for AI workloads — it understands tokens, models, costs, and agent state.
 
 ```
-         You (CEO)
-          |
-     MagiC Server
-    /    |    |    \
-ContentBot  SEOBot  LeadBot  CodeBot
-(Python)   (Node)  (Python)  (Go)
+         Your App
+            │
+       MagiC Server
+      ┌─────┼─────────────┐
+      │     │             │
+  LLM Gateway  Prompt Registry  Agent Memory
+  (OpenAI,     (versioned,      (conversation +
+   Anthropic,   A/B testing)     vector search)
+   Ollama)          │
+      │        Worker Orchestration
+      └─────── DAG workflows ──────┘
+              /    |    \
+         SearchBot  SumBot  AnalyzeBot
+         (Python)  (Node)   (Go)
 ```
 
 ## Quick Start (< 5 minutes)
@@ -76,6 +82,10 @@ cd sdk/python && pip install -e . && cd ../..
 ### Option C: Docker
 
 ```bash
+# From Docker Hub
+docker run -p 8080:8080 kienbui1995/magic:latest
+
+# Or build locally
 docker build -t magic .
 docker run -p 8080:8080 magic
 ```
@@ -157,28 +167,29 @@ python examples/multi-worker/main.py
 
 ## Why MagiC?
 
-| Without MagiC | With MagiC |
-|---|---|
-| Each AI agent is a standalone script | Workers join an organization, get tasks assigned |
-| No visibility into what agents are doing | Real-time monitoring, structured JSON logging |
-| Manual coordination between agents | Automatic routing (best match, cheapest, fastest) |
-| No cost control — surprise bills | Budget alerts at 80%, auto-pause at 100% |
-| Agents can't collaborate | Workers delegate tasks to each other via protocol |
-| Locked into one framework (CrewAI OR LangChain) | Any worker, any framework, any language |
+### AI-Native Infrastructure
 
-### vs. Other Frameworks
+| Feature | Generic Queue (Temporal/Celery) | MagiC |
+|---|---|---|
+| LLM Gateway | ❌ Build yourself | ✅ Multi-provider routing, fallback, cost tracking |
+| Prompt Management | ❌ Build yourself | ✅ Versioned templates, A/B testing |
+| Agent Memory | ❌ Build yourself | ✅ Conversation history + vector recall |
+| Token Counting | ❌ N/A | ✅ Automatic per-request |
+| Model Cost Tracking | ❌ N/A | ✅ Per-model, per-worker, budget alerts |
 
-| Feature | CrewAI | AutoGen | LangGraph | **MagiC** |
-|---|---|---|---|---|
-| Approach | Build agents | Build agents | Build graphs | **Manage any agent** |
-| Protocol | Closed | Closed | Closed | **Open (MCP²)** |
-| Language lock-in | Python | Python | Python | **Any (Go core, Python SDK)** |
-| Cost control | No | No | No | **Budget alerts + auto-pause** |
-| Multi-step workflows | Flow | Event-driven | Graph | **DAG orchestrator** |
-| Worker discovery | No | No | No | **Capability-based routing** |
-| Organization model | Crew | GroupChat | Graph | **Org > Teams > Workers** |
+### vs. AI Frameworks
 
-**MagiC doesn't replace CrewAI/LangChain — it manages them.** Your CrewAI agent becomes a MagiC worker. Your LangChain chain becomes a MagiC worker. They join the same organization and work together.
+| Feature | CrewAI | LangGraph | **MagiC** |
+|---|---|---|---|
+| Approach | Build agents | Build graphs | **Manage + power any agent** |
+| LLM Gateway | Single provider | Single provider | **Multi-provider routing** |
+| Prompt Registry | No | No | **Versioned + A/B testing** |
+| Agent Memory | Basic | Checkpoints | **Conversation + vector search** |
+| Language | Python only | Python only | **Any (Go core, Python/Go/TS SDK)** |
+| Cost Control | No | No | **Budget alerts + auto-pause** |
+| Worker Orchestration | Crew flow | Graph | **DAG with parallel execution** |
+
+**MagiC doesn't replace CrewAI/LangChain — it powers them.** Your CrewAI agent becomes a MagiC worker with LLM routing, prompt management, and memory built in.
 
 ## Architecture
 
@@ -393,8 +404,17 @@ python -m venv .venv && .venv/bin/pip install -e ".[dev]"
 - [x] Webhooks — At-least-once event delivery with HMAC-SHA256
 - [x] Prometheus metrics — Full observability via `/metrics`
 - [x] Dashboard — Web UI for monitoring
-- [ ] VitePress docs site
-- [ ] Docker Hub image
+- [x] LLM Gateway — Multi-provider routing (OpenAI, Anthropic, Ollama), cost tracking, fallback
+- [x] Prompt Registry — Versioned templates, variable interpolation, A/B testing
+- [x] Agent Memory — Conversation history (sliding window) + long-term vector recall
+- [x] TypeScript SDK — Native TypeScript workers + npm publish
+- [x] CLI — `magic workers`, `magic tasks`, `magic submit`, `magic status`
+- [x] Distributed tracing — W3C Trace Context propagation
+- [x] Task DLQ — Dead letter queue for permanently failed tasks
+- [x] Worker auto-discovery — UDP broadcast for local dev
+- [x] Cluster mode — Leader election via PostgreSQL advisory locks
+- [x] VitePress docs site
+- [x] Docker Hub image
 - [ ] SaaS managed platform
 
 ## License

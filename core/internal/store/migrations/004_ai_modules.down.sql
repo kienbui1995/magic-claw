@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS memory_turns;
+DROP TABLE IF EXISTS prompts;

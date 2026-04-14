@@ -26,6 +26,7 @@ type limiterStore struct {
 	limiters map[string]*entry
 	r        rate.Limit // tokens per second
 	b        int        // burst
+	stopCh   chan struct{}
 }
 
 type entry struct {
@@ -38,6 +39,7 @@ func newLimiterStore(r rate.Limit, b int) *limiterStore {
 		limiters: make(map[string]*entry),
 		r:        r,
 		b:        b,
+		stopCh:   make(chan struct{}),
 	}
 	go ls.cleanup()
 	return ls
@@ -71,16 +73,25 @@ func (ls *limiterStore) get(key string) *rate.Limiter {
 func (ls *limiterStore) cleanup() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
-	for range ticker.C {
-		ls.mu.Lock()
-		cutoff := time.Now().Add(-5 * time.Minute)
-		for k, e := range ls.limiters {
-			if e.lastSeen.Before(cutoff) {
-				delete(ls.limiters, k)
+	for {
+		select {
+		case <-ticker.C:
+			ls.mu.Lock()
+			cutoff := time.Now().Add(-5 * time.Minute)
+			for k, e := range ls.limiters {
+				if e.lastSeen.Before(cutoff) {
+					delete(ls.limiters, k)
+				}
 			}
+			ls.mu.Unlock()
+		case <-ls.stopCh:
+			return
 		}
-		ls.mu.Unlock()
 	}
+}
+
+func (ls *limiterStore) stop() {
+	close(ls.stopCh)
 }
 
 // clientIP extracts the real client IP, respecting X-Forwarded-For from trusted proxies.
@@ -91,14 +102,16 @@ func (ls *limiterStore) cleanup() {
 // a trusted reverse proxy (e.g. Cloudflare Tunnel, nginx) and port 8080 is
 // not exposed directly to the internet.
 func clientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		// Take first IP in the chain (closest to client)
-		for i, c := range xff {
-			if c == ',' {
-				return xff[:i]
+	// Only trust X-Forwarded-For when behind a trusted reverse proxy
+	if os.Getenv("MAGIC_TRUSTED_PROXY") == "true" {
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			for i, c := range xff {
+				if c == ',' {
+					return xff[:i]
+				}
 			}
+			return xff
 		}
-		return xff
 	}
 	// Fall back to RemoteAddr (strip port)
 	host := r.RemoteAddr

@@ -1,0 +1,24 @@
+{
+  "name": "Research: AI Agents in 2025",
+  "steps": [
+    {
+      "id": "search",
+      "task_type": "research.search",
+      "input": {"topic": "AI agents in production 2025"},
+      "on_failure": "skip"
+    },
+    {
+      "id": "summarize",
+      "task_type": "research.summarize",
+      "input": {"topic": "AI agents in production 2025"},
+      "depends_on": ["search"],
+      "on_failure": "skip"
+    },
+    {
+      "id": "analyze",
+      "task_type": "research.analyze",
+      "input": {"topic": "AI agents in production 2025"},
+      "depends_on": ["summarize"]
+    }
+  ]
+}

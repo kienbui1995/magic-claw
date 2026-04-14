@@ -490,7 +490,7 @@ func (s *PostgreSQLStore) ListPendingWebhookDeliveries() []*protocol.WebhookDeli
 // Interface compliance check — compile-time assertion.
 var _ Store = (*PostgreSQLStore)(nil)
 
-// --- Role Bindings (stub — TODO: implement with SQL) ---
+// --- Role Bindings ---
 
 func (s *PostgreSQLStore) AddRoleBinding(rb *protocol.RoleBinding) error {
 	return pgPut(s.pool, "role_bindings", rb.ID, rb)
@@ -515,7 +515,7 @@ func (s *PostgreSQLStore) FindRoleBinding(orgID, subject string) (*protocol.Role
 	return items[0], nil
 }
 
-// --- Policies (stub — TODO: implement with SQL) ---
+// --- Policies ---
 
 func (s *PostgreSQLStore) AddPolicy(p *protocol.Policy) error {
 	return pgPut(s.pool, "policies", p.ID, p)
@@ -533,4 +533,59 @@ func (s *PostgreSQLStore) ListPoliciesByOrg(orgID string) []*protocol.Policy {
 	items, _ := pgList[protocol.Policy](s.pool,
 		`SELECT data FROM policies WHERE data->>'org_id' = $1`, orgID)
 	return items
+}
+
+func (s *PostgreSQLStore) AddDLQEntry(e *protocol.DLQEntry) error {
+	data, err := json.Marshal(e)
+	if err != nil {
+		return err
+	}
+	_, err = s.pool.Exec(context.Background(),
+		`INSERT INTO dlq (id, data) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`, e.ID, string(data))
+	return err
+}
+
+func (s *PostgreSQLStore) ListDLQ() []*protocol.DLQEntry {
+	items, _ := pgList[protocol.DLQEntry](s.pool, `SELECT data FROM dlq ORDER BY data->>'created_at' DESC`)
+	return items
+}
+
+func (s *PostgreSQLStore) AddPrompt(p *protocol.PromptTemplate) error {
+	return pgPut(s.pool, "prompts", p.ID, p)
+}
+
+func (s *PostgreSQLStore) ListPrompts() []*protocol.PromptTemplate {
+	items, _ := pgList[protocol.PromptTemplate](s.pool, `SELECT data FROM prompts ORDER BY data->>'created_at'`)
+	return items
+}
+
+func (s *PostgreSQLStore) AddMemoryTurn(sessionID string, turn *protocol.MemoryTurn) error {
+	data, err := json.Marshal(turn)
+	if err != nil {
+		return err
+	}
+	_, err = s.pool.Exec(context.Background(),
+		`INSERT INTO memory_turns (session_id, data) VALUES ($1, $2)`, sessionID, string(data))
+	return err
+}
+
+func (s *PostgreSQLStore) GetMemoryTurns(sessionID string) []*protocol.MemoryTurn {
+	rows, err := s.pool.Query(context.Background(),
+		`SELECT data FROM memory_turns WHERE session_id = $1 ORDER BY id`, sessionID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var result []*protocol.MemoryTurn
+	for rows.Next() {
+		var data string
+		if err := rows.Scan(&data); err != nil {
+			continue
+		}
+		var t protocol.MemoryTurn
+		if json.Unmarshal([]byte(data), &t) == nil {
+			result = append(result, &t)
+		}
+	}
+	return result
 }

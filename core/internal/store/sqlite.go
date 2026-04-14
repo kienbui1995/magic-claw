@@ -37,6 +37,9 @@ func NewSQLiteStore(path string) (*SQLiteStore, error) {
 		`CREATE TABLE IF NOT EXISTS webhook_deliveries (id TEXT PRIMARY KEY, data TEXT NOT NULL)`,
 		`CREATE TABLE IF NOT EXISTS role_bindings (id TEXT PRIMARY KEY, data TEXT NOT NULL)`,
 		`CREATE TABLE IF NOT EXISTS policies (id TEXT PRIMARY KEY, data TEXT NOT NULL)`,
+		`CREATE TABLE IF NOT EXISTS dlq (id TEXT PRIMARY KEY, data TEXT NOT NULL)`,
+		`CREATE TABLE IF NOT EXISTS prompts (id TEXT PRIMARY KEY, data TEXT NOT NULL)`,
+		`CREATE TABLE IF NOT EXISTS memory_turns (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, data TEXT NOT NULL)`,
 	}
 	for _, ddl := range tables {
 		if _, err := db.Exec(ddl); err != nil {
@@ -516,6 +519,94 @@ func (s *SQLiteStore) ListPoliciesByOrg(orgID string) []*protocol.Policy {
 	for _, p := range all {
 		if p.OrgID == orgID {
 			result = append(result, p)
+		}
+	}
+	return result
+}
+
+func (s *SQLiteStore) AddDLQEntry(e *protocol.DLQEntry) error {
+	data, err := json.Marshal(e)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(`INSERT OR REPLACE INTO dlq (id, data) VALUES (?, ?)`, e.ID, string(data))
+	return err
+}
+
+func (s *SQLiteStore) ListDLQ() []*protocol.DLQEntry {
+	rows, err := s.db.Query(`SELECT data FROM dlq ORDER BY rowid DESC`)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var result []*protocol.DLQEntry
+	for rows.Next() {
+		var data string
+		if err := rows.Scan(&data); err != nil {
+			continue
+		}
+		var e protocol.DLQEntry
+		if err := json.Unmarshal([]byte(data), &e); err != nil {
+			continue
+		}
+		result = append(result, &e)
+	}
+	return result
+}
+
+func (s *SQLiteStore) AddPrompt(p *protocol.PromptTemplate) error {
+	data, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(`INSERT INTO prompts (id, data) VALUES (?, ?)`, p.ID, string(data))
+	return err
+}
+
+func (s *SQLiteStore) ListPrompts() []*protocol.PromptTemplate {
+	rows, err := s.db.Query(`SELECT data FROM prompts ORDER BY rowid`)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var result []*protocol.PromptTemplate
+	for rows.Next() {
+		var data string
+		if err := rows.Scan(&data); err != nil {
+			continue
+		}
+		var p protocol.PromptTemplate
+		if json.Unmarshal([]byte(data), &p) == nil {
+			result = append(result, &p)
+		}
+	}
+	return result
+}
+
+func (s *SQLiteStore) AddMemoryTurn(sessionID string, turn *protocol.MemoryTurn) error {
+	data, err := json.Marshal(turn)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(`INSERT INTO memory_turns (session_id, data) VALUES (?, ?)`, sessionID, string(data))
+	return err
+}
+
+func (s *SQLiteStore) GetMemoryTurns(sessionID string) []*protocol.MemoryTurn {
+	rows, err := s.db.Query(`SELECT data FROM memory_turns WHERE session_id = ? ORDER BY id`, sessionID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var result []*protocol.MemoryTurn
+	for rows.Next() {
+		var data string
+		if err := rows.Scan(&data); err != nil {
+			continue
+		}
+		var t protocol.MemoryTurn
+		if json.Unmarshal([]byte(data), &t) == nil {
+			result = append(result, &t)
 		}
 	}
 	return result

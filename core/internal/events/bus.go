@@ -32,6 +32,7 @@ type Bus struct {
 	stopCh   chan struct{}
 	stopped  bool
 	wg       sync.WaitGroup
+	OnDrop   func() // called when an event is dropped (for metrics)
 }
 
 type subscription struct {
@@ -152,6 +153,9 @@ func (b *Bus) Publish(e Event) {
 	case b.eventCh <- e:
 	default:
 		log.Printf("[events] WARNING: event buffer full, dropping event type=%s", e.Type)
+		if b.OnDrop != nil {
+			b.OnDrop()
+		}
 	}
 }
 

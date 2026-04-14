@@ -52,6 +52,7 @@ func TestRateLimitMiddleware_DisabledByEnv(t *testing.T) {
 }
 
 func TestClientIP_ForwardedFor(t *testing.T) {
+	t.Setenv("MAGIC_TRUSTED_PROXY", "true")
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("X-Forwarded-For", "203.0.113.1, 10.0.0.1")
 	if ip := clientIP(req); ip != "203.0.113.1" {

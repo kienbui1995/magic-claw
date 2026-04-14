@@ -160,6 +160,35 @@ type TaskError struct {
 	Details any    `json:"details,omitempty"`
 }
 
+// DLQEntry represents a task that permanently failed after all retries.
+type DLQEntry struct {
+	ID        string    `json:"id"`
+	TaskID    string    `json:"task_id"`
+	TaskType  string    `json:"task_type"`
+	WorkerID  string    `json:"worker_id"`
+	Error     string    `json:"error"`
+	Retries   int       `json:"retries"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// PromptTemplate is a versioned prompt stored in the registry.
+type PromptTemplate struct {
+	ID        string            `json:"id"`
+	Name      string            `json:"name"`
+	Version   int               `json:"version"`
+	Content   string            `json:"content"`
+	Metadata  map[string]string `json:"metadata,omitempty"`
+	CreatedAt time.Time         `json:"created_at"`
+}
+
+// MemoryTurn is a conversation turn stored in agent memory.
+type MemoryTurn struct {
+	SessionID string    `json:"session_id"`
+	Role      string    `json:"role"`
+	Content   string    `json:"content"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
 type Task struct {
 	ID             string          `json:"id"`
 	TraceID        string          `json:"trace_id,omitempty"`

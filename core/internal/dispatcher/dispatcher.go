@@ -16,6 +16,7 @@ import (
 	"github.com/kienbui1995/magic/core/internal/events"
 	"github.com/kienbui1995/magic/core/internal/protocol"
 	"github.com/kienbui1995/magic/core/internal/store"
+	"github.com/kienbui1995/magic/core/internal/tracing"
 )
 
 const (
@@ -96,6 +97,12 @@ func validateEndpointURL(rawURL string) error {
 // Dispatch sends a task.assign to the worker's endpoint and processes the response.
 // It runs synchronously — caller should use a goroutine if async is needed.
 func (d *Dispatcher) Dispatch(ctx context.Context, task *protocol.Task, worker *protocol.Worker) error {
+	ctx, span := tracing.StartSpan(ctx, "dispatcher.Dispatch")
+	defer span.End()
+	span.SetAttr("task.id", task.ID)
+	span.SetAttr("task.type", task.Type)
+	span.SetAttr("worker.id", worker.ID)
+
 	// Check circuit breaker
 	if d.isCircuitOpen(worker.ID) {
 		d.handleFailure(task, worker, "circuit breaker open: worker has too many recent failures")
@@ -163,9 +170,10 @@ func (d *Dispatcher) Dispatch(ctx context.Context, task *protocol.Task, worker *
 		}
 	}
 
-	// All retries failed
+	// All retries failed — move to DLQ
 	d.handleFailure(task, worker, fmt.Sprintf("failed after %d retries: %v", maxRetries+1, lastErr))
 	d.recordFailure(worker.ID)
+	d.moveToDLQ(task, worker, maxRetries+1)
 	return lastErr
 }
 
@@ -175,6 +183,7 @@ func (d *Dispatcher) tryDispatch(ctx context.Context, body []byte, task *protoco
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	tracing.InjectHeaders(ctx, req)
 	if task.TraceID != "" {
 		req.Header.Set("X-Trace-ID", task.TraceID)
 	}
@@ -324,6 +333,34 @@ func (d *Dispatcher) recordFailure(workerID string) {
 	if cs.failures >= circuitFailThreshold {
 		cs.openUntil = time.Now().Add(circuitOpenDuration)
 	}
+}
+
+func (d *Dispatcher) moveToDLQ(task *protocol.Task, worker *protocol.Worker, retries int) {
+	errMsg := ""
+	if task.Error != nil {
+		errMsg = task.Error.Message
+	}
+	entry := &protocol.DLQEntry{
+		ID:        protocol.GenerateID("dlq"),
+		TaskID:    task.ID,
+		TaskType:  task.Type,
+		WorkerID:  worker.ID,
+		Error:     errMsg,
+		Retries:   retries,
+		CreatedAt: time.Now().UTC(),
+	}
+	d.store.AddDLQEntry(entry) //nolint:errcheck
+	d.bus.Publish(events.Event{
+		Type:     "task.dlq",
+		Source:   "dispatcher",
+		Severity: "error",
+		Payload: map[string]any{
+			"task_id":   task.ID,
+			"worker_id": worker.ID,
+			"retries":   retries,
+			"error":     errMsg,
+		},
+	})
 }
 
 // DispatchStream dispatches a task to a streaming worker and proxies the SSE

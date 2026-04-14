@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -13,6 +15,39 @@ import (
 	"github.com/kienbui1995/magic/core/internal/protocol"
 	"github.com/kienbui1995/magic/core/internal/store"
 )
+
+// validateWebhookURL blocks private/internal IPs to prevent SSRF.
+func validateWebhookURL(rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid URL")
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("scheme must be http or https")
+	}
+	host := u.Hostname()
+	if host == "metadata.google.internal" || host == "169.254.169.254" {
+		return fmt.Errorf("URL must not point to cloud metadata service")
+	}
+	// Check literal IP
+	if ip := net.ParseIP(host); ip != nil {
+		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+			return fmt.Errorf("URL must not point to private/internal network")
+		}
+		return nil
+	}
+	// Resolve hostname to catch DNS rebinding
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		return nil // DNS failure at creation time is OK
+	}
+	for _, ip := range ips {
+		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified() {
+			return fmt.Errorf("hostname resolves to private/internal IP")
+		}
+	}
+	return nil
+}
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -159,10 +194,6 @@ func (g *Gateway) handleSubmitTask(w http.ResponseWriter, r *http.Request) {
 	if g.deps.Policy != nil {
 		result := g.deps.Policy.Enforce(&task)
 		if !result.Allowed {
-			msgs := make([]string, len(result.Violations))
-			for i, v := range result.Violations {
-				msgs[i] = v.Message
-			}
 			writeJSON(w, http.StatusForbidden, map[string]any{
 				"error":      "policy violation",
 				"violations": result.Violations,
@@ -182,7 +213,19 @@ func (g *Gateway) handleSubmitTask(w http.ResponseWriter, r *http.Request) {
 	// Copy for async dispatch to avoid race condition (H-04)
 	taskCopy := task
 	workerCopy := *worker
-	go g.deps.Dispatcher.Dispatch(context.Background(), &taskCopy, &workerCopy) //nolint:errcheck
+	if g.deps.DispatchWG != nil {
+		g.deps.DispatchWG.Add(1)
+	}
+	go func() {
+		if g.deps.DispatchWG != nil {
+			defer g.deps.DispatchWG.Done()
+		}
+		ctx := context.Background()
+		if g.deps.ShutdownCtx != nil {
+			ctx = g.deps.ShutdownCtx
+		}
+		g.deps.Dispatcher.Dispatch(ctx, &taskCopy, &workerCopy) //nolint:errcheck
+	}()
 
 	writeJSON(w, http.StatusCreated, task)
 }
@@ -462,8 +505,9 @@ func (g *Gateway) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/orgs/{orgID}/tokens
 func (g *Gateway) handleListTokens(w http.ResponseWriter, r *http.Request) {
 	orgID := r.PathValue("orgID")
+	limit, offset := getPagination(r)
 	tokens := g.deps.Store.ListWorkerTokensByOrg(orgID)
-	writeJSON(w, http.StatusOK, tokens)
+	writeJSON(w, http.StatusOK, paginate(tokens, limit, offset))
 }
 
 // handleRevokeToken revokes a token by ID.
@@ -671,6 +715,10 @@ func (g *Gateway) handleCreateWebhook(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "url and events are required")
 		return
 	}
+	if err := validateWebhookURL(req.URL); err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid webhook URL: %v", err))
+		return
+	}
 	hook, err := g.deps.Webhook.CreateWebhook(orgID, req.URL, req.Events, req.Secret)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create webhook")
@@ -684,7 +732,8 @@ func (g *Gateway) handleCreateWebhook(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/orgs/{orgID}/webhooks
 func (g *Gateway) handleListWebhooks(w http.ResponseWriter, r *http.Request) {
 	orgID := r.PathValue("orgID")
-	writeJSON(w, http.StatusOK, g.deps.Webhook.ListWebhooks(orgID))
+	limit, offset := getPagination(r)
+	writeJSON(w, http.StatusOK, paginate(g.deps.Webhook.ListWebhooks(orgID), limit, offset))
 }
 
 // handleDeleteWebhook removes a webhook by ID.
@@ -715,7 +764,8 @@ func (g *Gateway) handleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/orgs/{orgID}/webhooks/{webhookID}/deliveries
 func (g *Gateway) handleListWebhookDeliveries(w http.ResponseWriter, r *http.Request) {
 	webhookID := r.PathValue("webhookID")
-	writeJSON(w, http.StatusOK, g.deps.Webhook.ListDeliveries(webhookID))
+	limit, offset := getPagination(r)
+	writeJSON(w, http.StatusOK, paginate(g.deps.Webhook.ListDeliveries(webhookID), limit, offset))
 }
 
 // handleResubscribeStream returns the result of a completed/failed task as a single SSE event.
@@ -798,7 +848,8 @@ func (g *Gateway) handleCreateRoleBinding(w http.ResponseWriter, r *http.Request
 // GET /api/v1/orgs/{orgID}/roles
 func (g *Gateway) handleListRoleBindings(w http.ResponseWriter, r *http.Request) {
 	orgID := r.PathValue("orgID")
-	writeJSON(w, http.StatusOK, g.deps.Store.ListRoleBindingsByOrg(orgID))
+	limit, offset := getPagination(r)
+	writeJSON(w, http.StatusOK, paginate(g.deps.Store.ListRoleBindingsByOrg(orgID), limit, offset))
 }
 
 // DELETE /api/v1/orgs/{orgID}/roles/{roleID}
@@ -853,7 +904,8 @@ func (g *Gateway) handleCreatePolicy(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/orgs/{orgID}/policies
 func (g *Gateway) handleListPolicies(w http.ResponseWriter, r *http.Request) {
 	orgID := r.PathValue("orgID")
-	writeJSON(w, http.StatusOK, g.deps.Store.ListPoliciesByOrg(orgID))
+	limit, offset := getPagination(r)
+	writeJSON(w, http.StatusOK, paginate(g.deps.Store.ListPoliciesByOrg(orgID), limit, offset))
 }
 
 // GET /api/v1/orgs/{orgID}/policies/{policyID}
@@ -916,4 +968,10 @@ func (g *Gateway) handleDeletePolicy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+func (g *Gateway) handleListDLQ(w http.ResponseWriter, r *http.Request) {
+	limit, offset := getPagination(r)
+	all := g.deps.Store.ListDLQ()
+	writeJSON(w, http.StatusOK, paginate(all, limit, offset))
 }

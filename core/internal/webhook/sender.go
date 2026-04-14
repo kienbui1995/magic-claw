@@ -5,8 +5,11 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/kienbui1995/magic/core/internal/monitor"
@@ -78,6 +81,13 @@ func (s *Sender) processQueue() {
 }
 
 func (s *Sender) deliver(d *protocol.WebhookDelivery, hook *protocol.Webhook) {
+	// SSRF defense-in-depth: validate URL before delivery
+	if err := validateDeliveryURL(hook.URL); err != nil {
+		log.Printf("[webhook] delivery %s blocked: %v", d.ID, err)
+		s.markDead(d)
+		return
+	}
+
 	req, err := http.NewRequest("POST", hook.URL, bytes.NewReader([]byte(d.Payload)))
 	if err != nil {
 		s.markFailed(d)
@@ -145,4 +155,39 @@ func computeHMAC(secret, payload string) string {
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write([]byte(payload))
 	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func validateDeliveryURL(rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid URL")
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("scheme must be http or https")
+	}
+	host := u.Hostname()
+	// Check literal IP
+	if ip := net.ParseIP(host); ip != nil {
+		if !ip.IsLoopback() && (ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified()) {
+			return fmt.Errorf("private IP blocked")
+		}
+		if host == "169.254.169.254" {
+			return fmt.Errorf("metadata endpoint blocked")
+		}
+		return nil
+	}
+	// Resolve hostname and check all resolved IPs
+	if host == "metadata.google.internal" {
+		return fmt.Errorf("metadata endpoint blocked")
+	}
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		return nil // DNS failure — allow, will fail at delivery
+	}
+	for _, ip := range ips {
+		if ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified() {
+			return fmt.Errorf("hostname resolves to private IP")
+		}
+	}
+	return nil
 }

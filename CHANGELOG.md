@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-04-14
+
+### Added — AI-Native Features
+- **LLM Gateway** — multi-provider routing (OpenAI, Anthropic, Ollama) with strategies: `cheapest`, `fastest`, `best`. Automatic fallback, token counting, cost calculation per request. API: `POST /api/v1/llm/chat`, `GET /api/v1/llm/models`
+- **Prompt Registry** — versioned prompt templates with `{{variable}}` interpolation and A/B testing (weighted variant selection). API: `POST /api/v1/prompts`, `GET /api/v1/prompts`, `POST /api/v1/prompts/render`
+- **Agent Memory** — short-term conversation history (sliding window per session) + long-term vector recall via pgvector. API: `POST /api/v1/memory/turns`, `GET /api/v1/memory/turns`, `POST /api/v1/memory/entries`
+- **LLM cost → costctrl integration** — LLM spend flows into budget system via `OnCost` callback
+- **AI event bus integration** — `llm.chat`, `prompt.created`, `memory.turn_added` events published for webhooks/audit
+
+### Added — Framework Features
+- **TypeScript SDK** — full SDK with Worker + Client classes, tests, npm publish in CI
+- **CLI commands** — `magic workers`, `magic tasks`, `magic submit <type>`, `magic status <id>`, `magic version`
+- **W3C Trace Context** — distributed tracing with `traceparent` header propagation, instrumented dispatcher
+- **Task DLQ** — dead letter queue for permanently failed tasks (persisted to DB). API: `GET /api/v1/dlq`
+- **Worker auto-discovery** — UDP broadcast for local dev (Listener + Announcer)
+- **Cluster mode** — leader election via PostgreSQL advisory locks for horizontal scaling
+- **YAML config** — `magic serve --config magic.yaml` with env var override. Example: `magic.yaml.example`
+- **Docker Hub image** — multi-platform (amd64/arm64) push in release workflow
+
+### Fixed — Security
+- **Webhook SSRF** — URL validation blocks private IPs + DNS rebinding (resolves hostname before IP check)
+- **Cost controller race condition** — atomic read-modify-write under lock
+- **X-Forwarded-For spoofing** — only trusted when `MAGIC_TRUSTED_PROXY=true`
+- **LLM Gateway lock race** — fixed RUnlock→Lock→Unlock→RLock pattern
+
+### Fixed — Reliability
+- **TotalCostToday daily reset** — midnight UTC reset + auto-unpause budget-paused workers
+- **Graceful shutdown** — `ShutdownCtx` + `WaitGroup` for gateway + orchestrator dispatches
+- **Event bus drop metric** — `magic_events_dropped_total` Prometheus counter
+- **Rate limiter goroutine leak** — added stop channel
+- **Health check** — skip marking offline if worker has in-flight tasks (`CurrentLoad > 0`)
+- **DLQ persistence** — SQLite + PostgreSQL tables (migration 003)
+- **Prompts + Memory persistence** — SQLite + PostgreSQL tables (migration 004)
+- **Pagination** — all list endpoints now paginate (tokens, webhooks, deliveries, roles, policies, DLQ)
+- **Unbounded data caps** — cost records (50K), DLQ memory (10K), LLM history (10K)
+- **Dockerfile** — runs as non-root user
+
+### Changed
+- README repositioned as AI-native framework with comparison tables
+- Config module replaces direct env var reads in main.go
+
 ## [0.7.0] - 2026-04-13
 
 ### Added

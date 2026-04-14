@@ -29,6 +29,9 @@ type MemoryStore struct {
 	webhookDeliveries map[string]*protocol.WebhookDelivery
 	roleBindings      map[string]*protocol.RoleBinding
 	policies          map[string]*protocol.Policy
+	dlq               []*protocol.DLQEntry
+	prompts           []*protocol.PromptTemplate
+	memoryTurns       map[string][]*protocol.MemoryTurn // sessionID -> turns
 }
 
 // NewMemoryStore creates a new in-memory store.
@@ -45,6 +48,7 @@ func NewMemoryStore() *MemoryStore {
 		webhookDeliveries: make(map[string]*protocol.WebhookDelivery),
 		roleBindings:      make(map[string]*protocol.RoleBinding),
 		policies:          make(map[string]*protocol.Policy),
+		memoryTurns:       make(map[string][]*protocol.MemoryTurn),
 	}
 }
 
@@ -730,5 +734,56 @@ func (s *MemoryStore) ListPoliciesByOrg(orgID string) []*protocol.Policy {
 			result = append(result, protocol.DeepCopyPolicy(p))
 		}
 	}
+	return result
+}
+
+const maxDLQEntries = 10_000
+
+func (s *MemoryStore) AddDLQEntry(e *protocol.DLQEntry) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.dlq = append(s.dlq, e)
+	if len(s.dlq) > maxDLQEntries {
+		s.dlq = s.dlq[len(s.dlq)-maxDLQEntries:]
+	}
+	return nil
+}
+
+func (s *MemoryStore) ListDLQ() []*protocol.DLQEntry {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	result := make([]*protocol.DLQEntry, len(s.dlq))
+	copy(result, s.dlq)
+	return result
+}
+
+func (s *MemoryStore) AddPrompt(p *protocol.PromptTemplate) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.prompts = append(s.prompts, p)
+	return nil
+}
+
+func (s *MemoryStore) ListPrompts() []*protocol.PromptTemplate {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	result := make([]*protocol.PromptTemplate, len(s.prompts))
+	copy(result, s.prompts)
+	return result
+}
+
+func (s *MemoryStore) AddMemoryTurn(sessionID string, turn *protocol.MemoryTurn) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.memoryTurns[sessionID] = append(s.memoryTurns[sessionID], turn)
+	return nil
+}
+
+func (s *MemoryStore) GetMemoryTurns(sessionID string) []*protocol.MemoryTurn {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	turns := s.memoryTurns[sessionID]
+	result := make([]*protocol.MemoryTurn, len(turns))
+	copy(result, turns)
 	return result
 }

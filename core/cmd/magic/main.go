@@ -1,27 +1,35 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/kienbui1995/magic/core/internal/audit"
+	"github.com/kienbui1995/magic/core/internal/config"
 	"github.com/kienbui1995/magic/core/internal/costctrl"
 	"github.com/kienbui1995/magic/core/internal/dispatcher"
 	"github.com/kienbui1995/magic/core/internal/evaluator"
 	"github.com/kienbui1995/magic/core/internal/events"
 	"github.com/kienbui1995/magic/core/internal/gateway"
 	"github.com/kienbui1995/magic/core/internal/knowledge"
+	"github.com/kienbui1995/magic/core/internal/llm"
+	"github.com/kienbui1995/magic/core/internal/memory"
 	"github.com/kienbui1995/magic/core/internal/monitor"
 	"github.com/kienbui1995/magic/core/internal/orchestrator"
 	"github.com/kienbui1995/magic/core/internal/orgmgr"
+	"github.com/kienbui1995/magic/core/internal/prompt"
 	"github.com/kienbui1995/magic/core/internal/registry"
 	"github.com/kienbui1995/magic/core/internal/router"
 	"github.com/kienbui1995/magic/core/internal/store"
@@ -34,35 +42,131 @@ func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("MagiC — Where AI becomes a Company")
 		fmt.Println("Usage: magic <command>")
-		fmt.Println("Commands: serve")
+		fmt.Println()
+		fmt.Println("Commands:")
+		fmt.Println("  serve              Start the MagiC server")
+		fmt.Println("  workers            List registered workers")
+		fmt.Println("  tasks              List tasks")
+		fmt.Println("  submit <type>      Submit a task (reads JSON input from stdin)")
+		fmt.Println("  status <task-id>   Get task status")
+		fmt.Println("  version            Print version")
+		fmt.Println()
+		fmt.Println("Environment:")
+		fmt.Println("  MAGIC_URL          Server URL (default: http://localhost:8080)")
+		fmt.Println("  MAGIC_API_KEY      API key for authentication")
 		os.Exit(0)
 	}
 
 	switch os.Args[1] {
 	case "serve":
 		runServer()
+	case "workers":
+		runCLI("GET", "/api/v1/workers", nil)
+	case "tasks":
+		runCLI("GET", "/api/v1/tasks", nil)
+	case "submit":
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "Usage: magic submit <task-type> [json-input]")
+			os.Exit(1)
+		}
+		input := "{}"
+		if len(os.Args) >= 4 {
+			input = os.Args[3]
+		} else {
+			// Try reading from stdin if not a terminal
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				b, err := io.ReadAll(os.Stdin)
+				if err == nil && len(b) > 0 {
+					input = string(b)
+				}
+			}
+		}
+		body := fmt.Sprintf(`{"type":%q,"input":%s}`, os.Args[2], input)
+		runCLI("POST", "/api/v1/tasks", []byte(body))
+	case "status":
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "Usage: magic status <task-id>")
+			os.Exit(1)
+		}
+		runCLI("GET", "/api/v1/tasks/"+os.Args[2], nil)
+	case "version":
+		fmt.Println("magic v0.4.0")
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", os.Args[1])
 		os.Exit(1)
 	}
 }
 
+func serverURL() string {
+	if u := os.Getenv("MAGIC_URL"); u != "" {
+		return strings.TrimRight(u, "/")
+	}
+	return "http://localhost:8080"
+}
+
+func runCLI(method, path string, body []byte) {
+	url := serverURL() + path
+	var req *http.Request
+	var err error
+	if body != nil {
+		req, err = http.NewRequest(method, url, bytes.NewReader(body))
+	} else {
+		req, err = http.NewRequest(method, url, nil)
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if key := os.Getenv("MAGIC_API_KEY"); key != "" {
+		req.Header.Set("Authorization", "Bearer "+key)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error connecting to %s: %v\n", serverURL(), err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	out, _ := io.ReadAll(resp.Body)
+	// Pretty-print JSON
+	var buf bytes.Buffer
+	if json.Indent(&buf, out, "", "  ") == nil {
+		fmt.Println(buf.String())
+	} else {
+		fmt.Println(string(out))
+	}
+	if resp.StatusCode >= 400 {
+		os.Exit(1)
+	}
+}
+
 func runServer() {
-	port := os.Getenv("MAGIC_PORT")
-	if port == "" {
-		port = "8080"
+	// Load config: YAML file (optional) + env var overrides
+	configPath := ""
+	for i, arg := range os.Args {
+		if arg == "--config" && i+1 < len(os.Args) {
+			configPath = os.Args[i+1]
+		}
+	}
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	apiKey := os.Getenv("MAGIC_API_KEY")
-	if apiKey != "" && len(apiKey) < 32 {
-		log.Fatalf("[security] MAGIC_API_KEY must be at least 32 characters (got %d). Generate one with: openssl rand -hex 32", len(apiKey))
+	port := cfg.Port
+
+	if cfg.APIKey != "" && len(cfg.APIKey) < 32 {
+		log.Fatalf("[security] MAGIC_API_KEY must be at least 32 characters (got %d). Generate one with: openssl rand -hex 32", len(cfg.APIKey))
 	}
 
-	// Store — auto-detect backend from env vars
+	// Store — auto-detect backend from config
 	var s store.Store
-	switch {
-	case os.Getenv("MAGIC_POSTGRES_URL") != "":
-		pgURL := os.Getenv("MAGIC_POSTGRES_URL")
+	switch cfg.Store.Driver {
+	case "postgres":
+		pgURL := cfg.Store.PostgresURL
 		// Support pool size config via URL query params.
 		// Use ? if no query string exists, & otherwise.
 		sep := func() string {
@@ -88,14 +192,14 @@ func runServer() {
 		}
 		s = pgStore
 		fmt.Println("  Storage: PostgreSQL")
-	case os.Getenv("MAGIC_STORE") != "":
-		sqliteStore, err := store.NewSQLiteStore(os.Getenv("MAGIC_STORE"))
+	case "sqlite":
+		sqliteStore, err := store.NewSQLiteStore(cfg.Store.SQLitePath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to open store: %v\n", err)
 			os.Exit(1)
 		}
 		s = sqliteStore
-		fmt.Printf("  Storage: SQLite (%s)\n", os.Getenv("MAGIC_STORE"))
+		fmt.Printf("  Storage: SQLite (%s)\n", cfg.Store.SQLitePath)
 	default:
 		s = store.NewMemoryStore()
 		fmt.Println("  Storage: in-memory (set MAGIC_STORE=path.db or MAGIC_POSTGRES_URL for persistence)")
@@ -116,6 +220,7 @@ func runServer() {
 
 	// Core
 	bus := events.NewBus()
+	bus.OnDrop = func() { monitor.MetricEventsDroppedTotal.Inc() }
 	reg := registry.New(s, bus)
 	rt := router.New(reg, s, bus)
 	mon := monitor.New(bus, os.Stdout)
@@ -124,6 +229,7 @@ func runServer() {
 
 	// Tier 2
 	cc := costctrl.New(s, bus)
+	stopCostReset := cc.StartDailyReset()
 	ev := evaluator.New(bus)
 	disp := dispatcher.New(s, bus, cc, ev)
 	orch := orchestrator.New(s, rt, bus, disp)
@@ -137,11 +243,36 @@ func runServer() {
 	// Webhook manager — subscribes to events and delivers webhooks
 	wh := webhook.New(s, bus)
 
+	// AI modules
+	llmGW := llm.NewGateway()
+	llmGW.OnCost = func(model, provider string, cost float64, usage llm.Usage) {
+		cc.RecordCost("llm:"+provider+":"+model, "llm-request", cost)
+	}
+	if key := cfg.LLM.OpenAI.APIKey; key != "" {
+		llmGW.RegisterProvider(llm.NewOpenAIProvider(key, cfg.LLM.OpenAI.BaseURL))
+		fmt.Println("  LLM: OpenAI enabled")
+	}
+	if key := cfg.LLM.Anthropic.APIKey; key != "" {
+		llmGW.RegisterProvider(llm.NewAnthropicProvider(key))
+		fmt.Println("  LLM: Anthropic enabled")
+	}
+	if url := cfg.LLM.Ollama.URL; url != "" {
+		llmGW.RegisterProvider(llm.NewOllamaProvider(url))
+		fmt.Println("  LLM: Ollama enabled")
+	}
+	prompts := prompt.NewRegistry()
+	agentMemory := memory.NewStore(nil)
+
 	// RBAC + Policy engine
 	rbacEnforcer := rbac.New(s)
 	policyEngine := policy.New(s, bus)
 
 	wh.Start()
+
+	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
+	var dispatchWG sync.WaitGroup
+
+	orch.SetShutdownContext(shutdownCtx)
 
 	gw := gateway.New(gateway.Deps{
 		Registry:     reg,
@@ -158,6 +289,11 @@ func runServer() {
 		Webhook:      wh,
 		RBAC:         rbacEnforcer,
 		Policy:       policyEngine,
+		ShutdownCtx:  shutdownCtx,
+		DispatchWG:   &dispatchWG,
+		LLM:          llmGW,
+		Prompts:      prompts,
+		Memory:       agentMemory,
 	})
 
 	if s.HasAnyWorkerTokens() {
@@ -215,7 +351,12 @@ func runServer() {
 	<-done
 	fmt.Println("\nShutting down gracefully...")
 
+	shutdownCancel() // cancel in-flight dispatches
+	dispatchWG.Wait() // wait for gateway dispatches
+	orch.Wait()       // wait for workflow step dispatches
+
 	stopHealthCheck()
+	stopCostReset()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
