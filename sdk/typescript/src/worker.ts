@@ -110,9 +110,10 @@ export class Worker {
             payload: { task_id: taskId, output: typeof result === "string" ? { result } : result, cost: 0 },
           };
         } catch (e: unknown) {
+          console.error("Task handler failed", { taskType, taskId, error: e });
           response = {
             type: "task.fail",
-            payload: { task_id: taskId, error: { code: "handler_error", message: String(e) } },
+            payload: { task_id: taskId, error: { code: "handler_error", message: "Task handler failed" } },
           };
         }
       }
