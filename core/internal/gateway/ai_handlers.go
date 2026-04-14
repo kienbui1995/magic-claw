@@ -40,7 +40,7 @@ func (g *Gateway) handleLLMChat(w http.ResponseWriter, r *http.Request) {
 	}
 	resp, err := g.deps.LLM.Chat(r.Context(), req)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, "LLM request failed: "+err.Error())
+		writeError(w, http.StatusBadGateway, "LLM request failed")
 		return
 	}
 	orgID, traceID := aiContext(r)
@@ -116,7 +116,7 @@ func (g *Gateway) handleRenderPrompt(w http.ResponseWriter, r *http.Request) {
 	}
 	tmpl, err := g.deps.Prompts.Resolve(req.Name)
 	if err != nil {
-		writeError(w, http.StatusNotFound, err.Error())
+		writeError(w, http.StatusNotFound, "prompt template not found")
 		return
 	}
 	rendered := prompt.Render(tmpl.Content, req.Vars)
@@ -169,6 +169,15 @@ func (g *Gateway) handleGetTurns(w http.ResponseWriter, r *http.Request) {
 	if sessionID == "" {
 		writeError(w, http.StatusBadRequest, "session_id query param required")
 		return
+	}
+	// Verify caller owns this session via org header
+	orgID, _ := aiContext(r)
+	if orgID != "" {
+		// Session IDs should be prefixed with org ID for isolation
+		if len(sessionID) < len(orgID) || sessionID[:len(orgID)] != orgID {
+			writeError(w, http.StatusForbidden, "session not accessible")
+			return
+		}
 	}
 	turns := g.deps.Memory.GetTurns(sessionID, 0)
 	writeJSON(w, http.StatusOK, turns)

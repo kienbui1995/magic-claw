@@ -75,6 +75,8 @@ func (g *Gateway) Handler() http.Handler {
 	taskLimiter := newLimiterStore(rate.Every(300*time.Millisecond), 20)
 	// Task submit per org: 200 req/org/min via X-Org-ID header
 	orgTaskLimiter := newLimiterStore(rate.Every(300*time.Millisecond), 20)
+	// LLM chat: 30 req/IP/min → ~1 token per 2s, burst 5 (costs real money)
+	llmLimiter := newLimiterStore(rate.Every(2*time.Second), 5)
 
 	registerRL := rateLimitMiddleware(registerLimiter, clientIP)
 	heartbeatRL := rateLimitMiddleware(heartbeatLimiter, clientIP)
@@ -88,6 +90,7 @@ func (g *Gateway) Handler() http.Handler {
 		}
 		return clientIP(r)
 	})
+	llmRL := rateLimitMiddleware(llmLimiter, clientIP)
 
 	// Prometheus metrics — no auth (Prometheus scrapers don't send Bearer tokens)
 	mux.Handle("GET /metrics", promhttp.Handler())
@@ -171,18 +174,18 @@ func (g *Gateway) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/dlq", g.handleListDLQ)
 
 	// LLM Gateway
-	mux.HandleFunc("POST /api/v1/llm/chat", g.handleLLMChat)
+	mux.Handle("POST /api/v1/llm/chat", llmRL(http.HandlerFunc(g.handleLLMChat)))
 	mux.HandleFunc("GET /api/v1/llm/models", g.handleLLMModels)
 
 	// Prompts
-	mux.HandleFunc("POST /api/v1/prompts", g.handleAddPrompt)
+	mux.Handle("POST /api/v1/prompts", llmRL(http.HandlerFunc(g.handleAddPrompt)))
 	mux.HandleFunc("GET /api/v1/prompts", g.handleListPrompts)
-	mux.HandleFunc("POST /api/v1/prompts/render", g.handleRenderPrompt)
+	mux.Handle("POST /api/v1/prompts/render", llmRL(http.HandlerFunc(g.handleRenderPrompt)))
 
 	// Agent Memory
-	mux.HandleFunc("POST /api/v1/memory/turns", g.handleAddTurn)
+	mux.Handle("POST /api/v1/memory/turns", llmRL(http.HandlerFunc(g.handleAddTurn)))
 	mux.HandleFunc("GET /api/v1/memory/turns", g.handleGetTurns)
-	mux.HandleFunc("POST /api/v1/memory/entries", g.handleAddMemoryEntry)
+	mux.Handle("POST /api/v1/memory/entries", llmRL(http.HandlerFunc(g.handleAddMemoryEntry)))
 
 	var handler http.Handler = mux
 	handler = rbacMiddleware(g.deps.RBAC)(handler)
