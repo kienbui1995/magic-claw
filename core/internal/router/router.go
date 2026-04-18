@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"errors"
 
 	"github.com/kienbui1995/magic/core/internal/events"
@@ -46,11 +47,13 @@ func (r *Router) RegisterStrategy(s Strategy) {
 // When task.Context.OrgID is set, only workers in the same org are considered
 // (security mode). When empty, all workers are eligible (dev mode).
 func (r *Router) RouteTask(task *protocol.Task) (*protocol.Worker, error) {
+	// TODO(ctx): propagate from caller once Router API takes ctx.
+	ctx := context.TODO()
 	orgID := task.Context.OrgID
 
 	var allWorkers []*protocol.Worker
 	if orgID != "" {
-		allWorkers = r.store.ListWorkersByOrg(orgID)
+		allWorkers = r.store.ListWorkersByOrg(ctx, orgID)
 	} else {
 		allWorkers = r.registry.ListWorkers()
 	}
@@ -92,7 +95,7 @@ func (r *Router) RouteTask(task *protocol.Task) (*protocol.Worker, error) {
 	task.Status = protocol.TaskAssigned
 
 	selected.CurrentLoad++
-	r.store.UpdateWorker(selected) //nolint:errcheck
+	r.store.UpdateWorker(ctx, selected) //nolint:errcheck
 
 	r.bus.Publish(events.Event{
 		Type:   "task.routed",

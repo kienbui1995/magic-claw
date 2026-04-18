@@ -1,6 +1,7 @@
 package orgmgr_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/kienbui1995/magic/core/internal/events"
@@ -36,19 +37,19 @@ func TestOrgManager_AssignWorker(t *testing.T) {
 
 	team, _ := mgr.CreateTeam("Marketing", "org_magic", 10.0)
 	w := &protocol.Worker{ID: "worker_001", Name: "Bot", Status: protocol.StatusActive}
-	s.AddWorker(w)
+	s.AddWorker(context.Background(), w)
 
 	err := mgr.AssignWorker(team.ID, "worker_001")
 	if err != nil {
 		t.Fatalf("AssignWorker: %v", err)
 	}
 
-	got, _ := s.GetTeam(team.ID)
+	got, _ := s.GetTeam(context.Background(), team.ID)
 	if len(got.Workers) != 1 || got.Workers[0] != "worker_001" {
 		t.Errorf("Workers: got %v", got.Workers)
 	}
 
-	gotW, _ := s.GetWorker("worker_001")
+	gotW, _ := s.GetWorker(context.Background(), "worker_001")
 	if gotW.TeamID != team.ID {
 		t.Errorf("TeamID: got %q", gotW.TeamID)
 	}
@@ -61,7 +62,7 @@ func TestOrgManager_RemoveWorker(t *testing.T) {
 
 	team, _ := mgr.CreateTeam("Marketing", "org_magic", 10.0)
 	w := &protocol.Worker{ID: "worker_001", Name: "Bot", Status: protocol.StatusActive}
-	s.AddWorker(w)
+	s.AddWorker(context.Background(), w)
 	mgr.AssignWorker(team.ID, "worker_001")
 
 	err := mgr.RemoveWorker(team.ID, "worker_001")
@@ -69,12 +70,12 @@ func TestOrgManager_RemoveWorker(t *testing.T) {
 		t.Fatalf("RemoveWorker: %v", err)
 	}
 
-	got, _ := s.GetTeam(team.ID)
+	got, _ := s.GetTeam(context.Background(), team.ID)
 	if len(got.Workers) != 0 {
 		t.Errorf("Workers: got %v, want empty", got.Workers)
 	}
 
-	gotW, _ := s.GetWorker("worker_001")
+	gotW, _ := s.GetWorker(context.Background(), "worker_001")
 	if gotW.TeamID != "" {
 		t.Errorf("TeamID: got %q, want empty", gotW.TeamID)
 	}

@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"time"
@@ -53,7 +54,9 @@ func (m *Manager) Stop() {
 }
 
 func (m *Manager) onEvent(e events.Event) {
-	hooks := m.store.FindWebhooksByEvent(e.Type)
+	// TODO(ctx): propagate from bus publish site once events carry ctx.
+	ctx := context.TODO()
+	hooks := m.store.FindWebhooksByEvent(ctx, e.Type)
 	if len(hooks) == 0 {
 		return
 	}
@@ -79,7 +82,7 @@ func (m *Manager) onEvent(e events.Event) {
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}
-		if err := m.store.AddWebhookDelivery(d); err != nil {
+		if err := m.store.AddWebhookDelivery(ctx, d); err != nil {
 			log.Printf("[webhook] failed to enqueue delivery for hook %s: %v", hook.ID, err)
 		}
 	}
@@ -96,7 +99,7 @@ func (m *Manager) CreateWebhook(orgID, url string, eventTypes []string, secret s
 		Active:    true,
 		CreatedAt: time.Now(),
 	}
-	if err := m.store.AddWebhook(hook); err != nil {
+	if err := m.store.AddWebhook(context.TODO(), hook); err != nil {
 		return nil, err
 	}
 	return hook, nil
@@ -104,12 +107,12 @@ func (m *Manager) CreateWebhook(orgID, url string, eventTypes []string, secret s
 
 // DeleteWebhook removes a webhook.
 func (m *Manager) DeleteWebhook(id string) error {
-	return m.store.DeleteWebhook(id)
+	return m.store.DeleteWebhook(context.TODO(), id)
 }
 
 // ListWebhooks returns all webhooks for an org. Secrets are redacted.
 func (m *Manager) ListWebhooks(orgID string) []*protocol.Webhook {
-	hooks := m.store.ListWebhooksByOrg(orgID)
+	hooks := m.store.ListWebhooksByOrg(context.TODO(), orgID)
 	for _, h := range hooks {
 		h.Secret = "" // never expose secret
 	}
@@ -118,7 +121,7 @@ func (m *Manager) ListWebhooks(orgID string) []*protocol.Webhook {
 
 // ListDeliveries returns pending/failed deliveries for a webhook.
 func (m *Manager) ListDeliveries(webhookID string) []*protocol.WebhookDelivery {
-	all := m.store.ListPendingWebhookDeliveries()
+	all := m.store.ListPendingWebhookDeliveries(context.TODO())
 	var result []*protocol.WebhookDelivery
 	for _, d := range all {
 		if d.WebhookID == webhookID {

@@ -1,6 +1,8 @@
 package orgmgr
 
 import (
+	"context"
+
 	"github.com/kienbui1995/magic/core/internal/events"
 	"github.com/kienbui1995/magic/core/internal/protocol"
 	"github.com/kienbui1995/magic/core/internal/store"
@@ -22,7 +24,8 @@ func (m *Manager) CreateTeam(name, orgID string, dailyBudget float64) (*protocol
 		OrgID:       orgID,
 		DailyBudget: dailyBudget,
 	}
-	if err := m.store.AddTeam(team); err != nil {
+	// TODO(ctx): propagate from caller once orgmgr API takes ctx.
+	if err := m.store.AddTeam(context.TODO(), team); err != nil {
 		return nil, err
 	}
 	m.bus.Publish(events.Event{
@@ -34,7 +37,8 @@ func (m *Manager) CreateTeam(name, orgID string, dailyBudget float64) (*protocol
 }
 
 func (m *Manager) DeleteTeam(teamID string) error {
-	if err := m.store.RemoveTeam(teamID); err != nil {
+	// TODO(ctx): propagate from caller once orgmgr API takes ctx.
+	if err := m.store.RemoveTeam(context.TODO(), teamID); err != nil {
 		return err
 	}
 	m.bus.Publish(events.Event{
@@ -46,28 +50,30 @@ func (m *Manager) DeleteTeam(teamID string) error {
 }
 
 func (m *Manager) ListTeams() []*protocol.Team {
-	return m.store.ListTeams()
+	return m.store.ListTeams(context.TODO()) // TODO(ctx): propagate from caller.
 }
 
 func (m *Manager) GetTeam(id string) (*protocol.Team, error) {
-	return m.store.GetTeam(id)
+	return m.store.GetTeam(context.TODO(), id) // TODO(ctx): propagate from caller.
 }
 
 func (m *Manager) AssignWorker(teamID, workerID string) error {
-	team, err := m.store.GetTeam(teamID)
+	// TODO(ctx): propagate from caller once orgmgr API takes ctx.
+	ctx := context.TODO()
+	team, err := m.store.GetTeam(ctx, teamID)
 	if err != nil {
 		return err
 	}
-	worker, err := m.store.GetWorker(workerID)
+	worker, err := m.store.GetWorker(ctx, workerID)
 	if err != nil {
 		return err
 	}
 	team.Workers = append(team.Workers, workerID)
-	if err := m.store.UpdateTeam(team); err != nil {
+	if err := m.store.UpdateTeam(ctx, team); err != nil {
 		return err
 	}
 	worker.TeamID = teamID
-	if err := m.store.UpdateWorker(worker); err != nil {
+	if err := m.store.UpdateWorker(ctx, worker); err != nil {
 		return err
 	}
 	m.bus.Publish(events.Event{
@@ -79,7 +85,9 @@ func (m *Manager) AssignWorker(teamID, workerID string) error {
 }
 
 func (m *Manager) RemoveWorker(teamID, workerID string) error {
-	team, err := m.store.GetTeam(teamID)
+	// TODO(ctx): propagate from caller once orgmgr API takes ctx.
+	ctx := context.TODO()
+	team, err := m.store.GetTeam(ctx, teamID)
 	if err != nil {
 		return err
 	}
@@ -90,15 +98,15 @@ func (m *Manager) RemoveWorker(teamID, workerID string) error {
 		}
 	}
 	team.Workers = updated
-	if err := m.store.UpdateTeam(team); err != nil {
+	if err := m.store.UpdateTeam(ctx, team); err != nil {
 		return err
 	}
-	worker, err := m.store.GetWorker(workerID)
+	worker, err := m.store.GetWorker(ctx, workerID)
 	if err != nil {
 		return err
 	}
 	worker.TeamID = ""
-	if err := m.store.UpdateWorker(worker); err != nil {
+	if err := m.store.UpdateWorker(ctx, worker); err != nil {
 		return err
 	}
 	m.bus.Publish(events.Event{

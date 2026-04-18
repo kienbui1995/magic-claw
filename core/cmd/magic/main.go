@@ -348,7 +348,7 @@ func runServer() {
 		OIDC:         oidcVerifier,
 	})
 
-	if s.HasAnyWorkerTokens() {
+	if s.HasAnyWorkerTokens(context.Background()) {
 		log.Printf("[security] worker token auth: enabled")
 	} else {
 		log.Printf("[security] worker token auth: disabled (dev mode — create a token to enable)")

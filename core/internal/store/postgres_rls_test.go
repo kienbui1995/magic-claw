@@ -40,14 +40,14 @@ func TestPostgreSQLStore_RLS_CrossTenantIsolation(t *testing.T) {
 	for _, org := range orgs {
 		for i := 0; i < 2; i++ {
 			id := org + "-w-" + string(rune('0'+i))
-			if err := s.AddWorker(&protocol.Worker{
+			if err := s.AddWorker(context.Background(), &protocol.Worker{
 				ID: id, Name: id, OrgID: org,
 				Status: protocol.StatusActive, RegisteredAt: time.Now(),
 			}); err != nil {
 				t.Fatalf("AddWorker: %v", err)
 			}
 			tid := org + "-t-" + string(rune('0'+i))
-			if err := s.AddTask(&protocol.Task{
+			if err := s.AddTask(context.Background(), &protocol.Task{
 				ID:      tid,
 				Type:    "test",
 				Context: protocol.TaskContext{OrgID: org},
@@ -60,7 +60,7 @@ func TestPostgreSQLStore_RLS_CrossTenantIsolation(t *testing.T) {
 		// Best-effort cleanup: RLS is bypassed here (empty var) so deletes see all.
 		for _, org := range orgs {
 			for i := 0; i < 2; i++ {
-				_ = s.RemoveWorker(org + "-w-" + string(rune('0'+i)))
+				_ = s.RemoveWorker(context.Background(), org + "-w-" + string(rune('0'+i)))
 				// tasks: no Remove method in interface; leave them — test IDs are unique per run.
 			}
 		}
@@ -119,10 +119,10 @@ func TestPostgreSQLStore_RLS_CrossTenantIsolation(t *testing.T) {
 		ID: "rls-quote-" + suffix, Name: "' OR 1=1 --", OrgID: orgs[0],
 		Status: protocol.StatusActive, RegisteredAt: time.Now(),
 	}
-	if err := s.AddWorker(payload); err != nil {
+	if err := s.AddWorker(context.Background(), payload); err != nil {
 		t.Fatalf("AddWorker(quoted): %v", err)
 	}
-	t.Cleanup(func() { _ = s.RemoveWorker(payload.ID) })
+	t.Cleanup(func() { _ = s.RemoveWorker(context.Background(), payload.ID) })
 	if err := s.WithOrgContext(ctx, orgs[1], func(conn *pgxpool.Conn) error {
 		if n := countViaConnWhere(t, conn, "workers", "id", payload.ID); n != 0 {
 			t.Errorf("orgB: saw orgA worker with quoted name — RLS leak")
@@ -136,7 +136,7 @@ func TestPostgreSQLStore_RLS_CrossTenantIsolation(t *testing.T) {
 // countWorkersForOrg counts workers at the application layer (not RLS-filtered
 // because the pool connection has no org var set).
 func countWorkersForOrg(s *store.PostgreSQLStore, org string) int {
-	ws := s.ListWorkersByOrg(org)
+	ws := s.ListWorkersByOrg(context.Background(), org)
 	return len(ws)
 }
 

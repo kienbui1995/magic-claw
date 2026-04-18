@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -64,13 +65,15 @@ func (s *Sender) Stop() {
 }
 
 func (s *Sender) processQueue() {
-	deliveries := s.store.ListPendingWebhookDeliveries()
+	// TODO(ctx): tie to sender lifecycle once API accepts ctx.
+	ctx := context.TODO()
+	deliveries := s.store.ListPendingWebhookDeliveries(ctx)
 	for _, d := range deliveries {
 		// Skip deliveries not yet ready for retry
 		if d.NextRetry != nil && time.Now().Before(*d.NextRetry) {
 			continue
 		}
-		hook, err := s.store.GetWebhook(d.WebhookID)
+		hook, err := s.store.GetWebhook(ctx, d.WebhookID)
 		if err != nil {
 			// Webhook deleted — mark dead
 			s.markDead(d)
@@ -124,7 +127,7 @@ func (s *Sender) deliver(d *protocol.WebhookDelivery, hook *protocol.Webhook) {
 	d.Status = protocol.DeliveryDelivered
 	d.Attempts++
 	d.UpdatedAt = time.Now()
-	s.store.UpdateWebhookDelivery(d) //nolint:errcheck
+	s.store.UpdateWebhookDelivery(context.TODO(), d) //nolint:errcheck
 }
 
 func (s *Sender) markFailed(d *protocol.WebhookDelivery) {
@@ -141,14 +144,14 @@ func (s *Sender) markFailed(d *protocol.WebhookDelivery) {
 		next := now.Add(backoff)
 		d.NextRetry = &next
 	}
-	s.store.UpdateWebhookDelivery(d) //nolint:errcheck
+	s.store.UpdateWebhookDelivery(context.TODO(), d) //nolint:errcheck
 }
 
 func (s *Sender) markDead(d *protocol.WebhookDelivery) {
 	monitor.MetricWebhookDeliveriesTotal.WithLabelValues("dead").Inc()
 	d.Status = protocol.DeliveryDead
 	d.UpdatedAt = time.Now()
-	s.store.UpdateWebhookDelivery(d) //nolint:errcheck
+	s.store.UpdateWebhookDelivery(context.TODO(), d) //nolint:errcheck
 }
 
 func computeHMAC(secret, payload string) string {
