@@ -27,6 +27,19 @@ jobs:
           version: latest
           working-directory: core
 
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - name: Run E2E tests
+        run: cd core && go test -tags=e2e -race -timeout=300s ./internal/e2e/...
+
   go-sdk:
     name: Go SDK Tests
     runs-on: ubuntu-latest
