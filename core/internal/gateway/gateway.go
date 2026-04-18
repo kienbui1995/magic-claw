@@ -208,6 +208,10 @@ func (g *Gateway) Handler() http.Handler {
 	mux.Handle("POST /api/v1/memory/entries", llmRL(http.HandlerFunc(g.handleAddMemoryEntry)))
 
 	var handler http.Handler = mux
+	// rlsScope is inner to rbac so it runs AFTER auth/rbac have populated
+	// the ctx with OIDC claims / worker token; it stamps the orgID so the
+	// postgres pool engages RLS on the first query of this request.
+	handler = rlsScopeMiddleware(handler)
 	handler = rbacMiddleware(g.deps.RBAC)(handler)
 	handler = requestIDMiddleware(handler)
 	handler = bodySizeMiddleware(handler)
