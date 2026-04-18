@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -17,11 +18,72 @@ type PostgreSQLStore struct {
 	pool *pgxpool.Pool
 }
 
+// orgIDCtxKey is the context key used by WithOrgIDContext / OrgIDFromContext
+// and by the pgxpool BeforeAcquire hook that engages RLS.
+type orgIDCtxKey struct{}
+
+// WithOrgIDContext stamps the given orgID onto ctx so that any postgres query
+// executed with this ctx runs with app.current_org_id set to orgID (engaging
+// RLS policies from migration 005). Empty orgID is a no-op — the caller falls
+// back to RLS bypass mode.
+//
+// For non-postgres backends (Memory, SQLite) this value is ignored.
+func WithOrgIDContext(ctx context.Context, orgID string) context.Context {
+	if orgID == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, orgIDCtxKey{}, orgID)
+}
+
+// OrgIDFromContext returns the orgID previously stamped via WithOrgIDContext,
+// or "" when absent.
+func OrgIDFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	v, _ := ctx.Value(orgIDCtxKey{}).(string)
+	return v
+}
+
 // NewPostgreSQLStore creates a new PostgreSQL store using the given connection string.
+//
+// The pool is configured with BeforeAcquire / AfterRelease hooks that read
+// the orgID from the request context (see WithOrgIDContext) and engage RLS
+// by setting the app.current_org_id session variable on the acquired
+// connection. AfterRelease always resets the variable so pooled connections
+// do not leak the scope to the next caller.
 func NewPostgreSQLStore(ctx context.Context, connStr string) (*PostgreSQLStore, error) {
-	pool, err := pgxpool.New(ctx, connStr)
+	cfg, err := pgxpool.ParseConfig(connStr)
 	if err != nil {
-		return nil, fmt.Errorf("pgxpool.New: %w", err)
+		return nil, fmt.Errorf("pgxpool.ParseConfig: %w", err)
+	}
+	cfg.BeforeAcquire = func(ctx context.Context, conn *pgx.Conn) bool {
+		orgID := OrgIDFromContext(ctx)
+		if orgID == "" {
+			return true // bypass mode — leave var unset
+		}
+		if _, err := conn.Exec(ctx, "SELECT set_config('app.current_org_id', $1, false)", orgID); err != nil {
+			// If we can't set the session var, don't hand out this conn —
+			// that would silently drop tenant isolation.
+			return false
+		}
+		return true
+	}
+	cfg.AfterRelease = func(conn *pgx.Conn) bool {
+		// Reset without propagating request ctx (may be cancelled). Use a
+		// short background timeout so a broken conn can't stall the pool.
+		rctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if _, err := conn.Exec(rctx, "SELECT set_config('app.current_org_id', '', false)"); err != nil {
+			// Reset failed — drop the conn rather than risk leaking the
+			// previous orgID to a future request.
+			return false
+		}
+		return true
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("pgxpool.NewWithConfig: %w", err)
 	}
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()

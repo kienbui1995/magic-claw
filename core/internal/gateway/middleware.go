@@ -306,6 +306,43 @@ func rbacMiddleware(enforcer *rbac.Enforcer) func(http.Handler) http.Handler {
 	}
 }
 
+// rlsScopeMiddleware extracts the authenticated orgID for the request and
+// stamps it onto the context via store.WithOrgIDContext so that the postgres
+// pool's BeforeAcquire hook sets app.current_org_id and RLS policies kick in.
+//
+// Sources (priority order — matches rbacMiddleware):
+//  1. OIDC claims (auth.ClaimsFromContext).OrgID
+//  2. Worker token (TokenFromContext).OrgID
+//  3. Path parameter {orgID} for /api/v1/orgs/{orgID}/...
+//
+// When none are present, ctx is left unchanged (empty orgID in downstream
+// queries means RLS bypass — preserves admin / dev behaviour).
+//
+// This middleware is a no-op for non-postgres store backends: Memory and
+// SQLite implementations ignore the ctx value.
+func rlsScopeMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		orgID := ""
+		if c := auth.ClaimsFromContext(r.Context()); c != nil {
+			orgID = c.OrgID
+		}
+		if orgID == "" {
+			if token := TokenFromContext(r.Context()); token != nil {
+				orgID = token.OrgID
+			}
+		}
+		if orgID == "" {
+			if pathOrg := r.PathValue("orgID"); pathOrg != "" {
+				orgID = pathOrg
+			}
+		}
+		if orgID != "" {
+			r = r.WithContext(store.WithOrgIDContext(r.Context(), orgID))
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func methodToAction(method string) string {
 	switch method {
 	case "GET", "HEAD":
