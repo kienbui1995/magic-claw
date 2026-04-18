@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"context"
 	"time"
 
 	"github.com/kienbui1995/magic/core/internal/events"
@@ -30,7 +31,9 @@ func (r *Registry) StartHealthCheck(interval time.Duration) func() {
 }
 
 func (r *Registry) checkHealth() {
-	workers := r.store.ListWorkers()
+	// TODO(ctx): derive from StartHealthCheck stop signal once Registry API takes ctx.
+	ctx := context.TODO()
+	workers := r.store.ListWorkers(ctx)
 	now := time.Now()
 	for _, w := range workers {
 		if w.Status == protocol.StatusActive && now.Sub(w.LastHeartbeat) > HeartbeatTimeout {
@@ -39,7 +42,7 @@ func (r *Registry) checkHealth() {
 				continue
 			}
 			w.Status = protocol.StatusOffline
-			r.store.UpdateWorker(w) //nolint:errcheck
+			r.store.UpdateWorker(ctx, w) //nolint:errcheck
 			r.bus.Publish(events.Event{
 				Type:     "worker.offline",
 				Source:   "registry",

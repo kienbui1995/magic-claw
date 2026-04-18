@@ -52,7 +52,7 @@ func (o *Orchestrator) Submit(name string, steps []protocol.WorkflowStep, ctx pr
 		CreatedAt: time.Now(),
 	}
 
-	if err := o.store.AddWorkflow(wf); err != nil {
+	if err := o.store.AddWorkflow(o.ctx, wf); err != nil {
 		return nil, err
 	}
 
@@ -74,7 +74,7 @@ func (o *Orchestrator) CompleteStep(workflowID, taskID string, output json.RawMe
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	wf, err := o.store.GetWorkflow(workflowID)
+	wf, err := o.store.GetWorkflow(o.ctx, workflowID)
 	if err != nil {
 		return err
 	}
@@ -87,7 +87,7 @@ func (o *Orchestrator) CompleteStep(workflowID, taskID string, output json.RawMe
 		}
 	}
 
-	if err := o.store.UpdateWorkflow(wf); err != nil {
+	if err := o.store.UpdateWorkflow(o.ctx, wf); err != nil {
 		return err
 	}
 
@@ -105,7 +105,7 @@ func (o *Orchestrator) FailStep(workflowID, taskID string, taskErr protocol.Task
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	wf, err := o.store.GetWorkflow(workflowID)
+	wf, err := o.store.GetWorkflow(o.ctx, workflowID)
 	if err != nil {
 		return err
 	}
@@ -121,7 +121,7 @@ func (o *Orchestrator) FailStep(workflowID, taskID string, taskErr protocol.Task
 			case "abort":
 				step.Status = protocol.StepFailed
 				wf.Status = protocol.WorkflowAborted
-				o.store.UpdateWorkflow(wf) //nolint:errcheck
+				o.store.UpdateWorkflow(o.ctx, wf) //nolint:errcheck
 				o.bus.Publish(events.Event{
 					Type:     "workflow.aborted",
 					Source:   "orchestrator",
@@ -136,7 +136,7 @@ func (o *Orchestrator) FailStep(workflowID, taskID string, taskErr protocol.Task
 		}
 	}
 
-	if err := o.store.UpdateWorkflow(wf); err != nil {
+	if err := o.store.UpdateWorkflow(o.ctx, wf); err != nil {
 		return err
 	}
 
@@ -164,7 +164,7 @@ func (o *Orchestrator) advanceWorkflowLocked(wf *protocol.Workflow) {
 		}
 		now := time.Now()
 		wf.DoneAt = &now
-		o.store.UpdateWorkflow(wf) //nolint:errcheck
+		o.store.UpdateWorkflow(o.ctx, wf) //nolint:errcheck
 
 		o.bus.Publish(events.Event{
 			Type:   "workflow.completed",
@@ -184,7 +184,7 @@ func (o *Orchestrator) advanceWorkflowLocked(wf *protocol.Workflow) {
 		}
 	}
 
-	o.store.UpdateWorkflow(wf)  //nolint:errcheck
+	o.store.UpdateWorkflow(o.ctx, wf)  //nolint:errcheck
 }
 
 func (o *Orchestrator) dispatchStep(wf *protocol.Workflow, step *protocol.WorkflowStep) {
@@ -249,7 +249,7 @@ func (o *Orchestrator) dispatchStep(wf *protocol.Workflow, step *protocol.Workfl
 		return
 	}
 
-	o.store.AddTask(task) //nolint:errcheck
+	o.store.AddTask(o.ctx, task) //nolint:errcheck
 	step.Status = protocol.StepRunning
 	step.TaskID = task.ID
 
@@ -263,7 +263,7 @@ func (o *Orchestrator) dispatchStep(wf *protocol.Workflow, step *protocol.Workfl
 				o.FailStep(wf.ID, task.ID, protocol.TaskError{Code: "dispatch_error", Message: err.Error()}) //nolint:errcheck
 			} else {
 				// Task completed successfully, advance workflow
-				got, _ := o.store.GetTask(task.ID)
+				got, _ := o.store.GetTask(o.ctx, task.ID)
 				if got != nil && got.Status == protocol.TaskCompleted {
 					o.CompleteStep(wf.ID, task.ID, got.Output) //nolint:errcheck
 				}
@@ -277,7 +277,7 @@ func (o *Orchestrator) ApproveStep(workflowID, stepID string) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	wf, err := o.store.GetWorkflow(workflowID)
+	wf, err := o.store.GetWorkflow(o.ctx, workflowID)
 	if err != nil {
 		return err
 	}
@@ -286,7 +286,7 @@ func (o *Orchestrator) ApproveStep(workflowID, stepID string) error {
 		if wf.Steps[i].ID == stepID && wf.Steps[i].Status == protocol.StepAwaitApproval {
 			wf.Steps[i].ApprovalRequired = false
 			wf.Steps[i].Status = protocol.StepPending
-			if err := o.store.UpdateWorkflow(wf); err != nil {
+			if err := o.store.UpdateWorkflow(o.ctx, wf); err != nil {
 				return err
 			}
 			o.bus.Publish(events.Event{
@@ -306,7 +306,7 @@ func (o *Orchestrator) CancelWorkflow(workflowID string) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	wf, err := o.store.GetWorkflow(workflowID)
+	wf, err := o.store.GetWorkflow(o.ctx, workflowID)
 	if err != nil {
 		return err
 	}
@@ -327,7 +327,7 @@ func (o *Orchestrator) CancelWorkflow(workflowID string) error {
 	wf.Status = protocol.WorkflowAborted
 	now := time.Now()
 	wf.DoneAt = &now
-	o.store.UpdateWorkflow(wf)  //nolint:errcheck
+	o.store.UpdateWorkflow(o.ctx, wf)  //nolint:errcheck
 
 	o.bus.Publish(events.Event{
 		Type:     "workflow.cancelled",
@@ -340,9 +340,9 @@ func (o *Orchestrator) CancelWorkflow(workflowID string) error {
 }
 
 func (o *Orchestrator) GetWorkflow(id string) (*protocol.Workflow, error) {
-	return o.store.GetWorkflow(id)
+	return o.store.GetWorkflow(o.ctx, id)
 }
 
 func (o *Orchestrator) ListWorkflows() []*protocol.Workflow {
-	return o.store.ListWorkflows()
+	return o.store.ListWorkflows(o.ctx)
 }

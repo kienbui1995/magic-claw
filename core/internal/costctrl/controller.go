@@ -1,6 +1,7 @@
 package costctrl
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -76,13 +77,15 @@ func (c *Controller) StartDailyReset() func() {
 func (c *Controller) resetDailyCosts() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	for _, w := range c.store.ListWorkers() {
+	// TODO(ctx): propagate from caller once costctrl API takes ctx.
+	ctx := context.TODO()
+	for _, w := range c.store.ListWorkers(ctx) {
 		if w.TotalCostToday > 0 {
 			w.TotalCostToday = 0
 			if w.Status == protocol.StatusPaused {
 				w.Status = protocol.StatusActive
 			}
-			c.store.UpdateWorker(w) //nolint:errcheck
+			c.store.UpdateWorker(ctx, w) //nolint:errcheck
 		}
 	}
 	c.bus.Publish(events.Event{
@@ -105,10 +108,12 @@ func (c *Controller) RecordCost(workerID, taskID string, cost float64) {
 		c.records = c.records[len(c.records)-maxCostRecords:]
 	}
 	// Atomic read-modify-write under lock to prevent lost updates
-	w, err := c.store.GetWorker(workerID)
+	// TODO(ctx): propagate from caller once costctrl API takes ctx.
+	ctx := context.TODO()
+	w, err := c.store.GetWorker(ctx, workerID)
 	if err == nil {
 		w.TotalCostToday += cost
-		c.store.UpdateWorker(w) //nolint:errcheck
+		c.store.UpdateWorker(ctx, w) //nolint:errcheck
 	}
 	// Apply policies while still holding lock to prevent concurrent budget checks
 	if err == nil {
@@ -127,7 +132,8 @@ func (c *Controller) applyPolicies(w *protocol.Worker, cost float64) {
 		switch p.Check(w, cost) {
 		case Reject:
 			w.Status = protocol.StatusPaused
-			c.store.UpdateWorker(w) //nolint:errcheck
+			// TODO(ctx): propagate from caller once costctrl API takes ctx.
+			c.store.UpdateWorker(context.TODO(), w) //nolint:errcheck
 			c.bus.Publish(events.Event{Type: "budget.exceeded", Source: "costctrl", Severity: "error",
 				Payload: map[string]any{"worker_id": w.ID, "policy": p.Name(),
 					"spent": w.TotalCostToday, "budget": w.Limits.MaxCostPerDay}})

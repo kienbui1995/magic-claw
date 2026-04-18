@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"context"
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -162,7 +163,7 @@ func TestE2E_TaskCancel(t *testing.T) {
 	fs.Bus.Subscribe("task.completed", func(e events.Event) { completedCh <- e })
 
 	taskID := protocol.GenerateID("task")
-	if err := fs.Store.AddTask(&protocol.Task{
+	if err := fs.Store.AddTask(context.Background(), &protocol.Task{
 		ID:        taskID,
 		Type:      "slow",
 		Priority:  protocol.PriorityNormal,
@@ -428,7 +429,7 @@ func TestE2E_AuditLog(t *testing.T) {
 			Detail:    map[string]any{"reason": "invalid token"},
 		},
 	} {
-		if err := fs.Store.AppendAudit(e); err != nil {
+		if err := fs.Store.AppendAudit(context.Background(), e); err != nil {
 			t.Fatalf("seed audit %d: %v", i, err)
 		}
 	}

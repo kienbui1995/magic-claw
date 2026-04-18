@@ -1,6 +1,7 @@
 package knowledge
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -32,7 +33,8 @@ func (h *Hub) Add(title, content string, tags []string, scope, scopeID, createdB
 		UpdatedAt: time.Now(),
 	}
 
-	if err := h.store.AddKnowledge(entry); err != nil {
+	// TODO(ctx): propagate from caller once knowledge API takes ctx.
+	if err := h.store.AddKnowledge(context.TODO(), entry); err != nil {
 		return nil, err
 	}
 
@@ -50,11 +52,13 @@ func (h *Hub) Add(title, content string, tags []string, scope, scopeID, createdB
 }
 
 func (h *Hub) Get(id string) (*protocol.KnowledgeEntry, error) {
-	return h.store.GetKnowledge(id)
+	return h.store.GetKnowledge(context.TODO(), id) // TODO(ctx): propagate from caller.
 }
 
 func (h *Hub) Update(id, title, content string, tags []string) error {
-	entry, err := h.store.GetKnowledge(id)
+	// TODO(ctx): propagate from caller once knowledge API takes ctx.
+	ctx := context.TODO()
+	entry, err := h.store.GetKnowledge(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -63,7 +67,7 @@ func (h *Hub) Update(id, title, content string, tags []string) error {
 	entry.Tags = tags
 	entry.UpdatedAt = time.Now()
 
-	if err := h.store.UpdateKnowledge(entry); err != nil {
+	if err := h.store.UpdateKnowledge(ctx, entry); err != nil {
 		return err
 	}
 
@@ -77,7 +81,8 @@ func (h *Hub) Update(id, title, content string, tags []string) error {
 }
 
 func (h *Hub) Delete(id string) error {
-	if err := h.store.DeleteKnowledge(id); err != nil {
+	// TODO(ctx): propagate from caller once knowledge API takes ctx.
+	if err := h.store.DeleteKnowledge(context.TODO(), id); err != nil {
 		return err
 	}
 
@@ -91,11 +96,11 @@ func (h *Hub) Delete(id string) error {
 }
 
 func (h *Hub) Search(query string) []*protocol.KnowledgeEntry {
-	return h.store.SearchKnowledge(query)
+	return h.store.SearchKnowledge(context.TODO(), query) // TODO(ctx): propagate from caller.
 }
 
 func (h *Hub) List() []*protocol.KnowledgeEntry {
-	return h.store.ListKnowledge()
+	return h.store.ListKnowledge(context.TODO()) // TODO(ctx): propagate from caller.
 }
 
 // SemanticSearch returns knowledge entries ranked by cosine similarity to queryVector.

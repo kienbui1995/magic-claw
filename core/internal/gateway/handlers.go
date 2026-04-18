@@ -229,7 +229,7 @@ func (g *Gateway) handleSubmitTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	g.deps.Store.AddTask(&task) //nolint:errcheck
+	g.deps.Store.AddTask(r.Context(), &task) //nolint:errcheck
 
 	// Copy for async dispatch to avoid race condition (H-04)
 	taskCopy := task
@@ -253,13 +253,13 @@ func (g *Gateway) handleSubmitTask(w http.ResponseWriter, r *http.Request) {
 
 func (g *Gateway) handleListTasks(w http.ResponseWriter, r *http.Request) {
 	limit, offset := getPagination(r)
-	tasks := g.deps.Store.ListTasks()
+	tasks := g.deps.Store.ListTasks(r.Context())
 	writeJSON(w, http.StatusOK, paginate(tasks, limit, offset))
 }
 
 func (g *Gateway) handleGetTask(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	task, err := g.deps.Store.GetTask(id)
+	task, err := g.deps.Store.GetTask(r.Context(), id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "task not found")
 		return
@@ -277,7 +277,7 @@ func (g *Gateway) handleGetTask(w http.ResponseWriter, r *http.Request) {
 // and is out of scope for this endpoint.
 func (g *Gateway) handleCancelTask(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	task, err := g.deps.Store.GetTask(id)
+	task, err := g.deps.Store.GetTask(r.Context(), id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "task not found")
 		return
@@ -292,7 +292,7 @@ func (g *Gateway) handleCancelTask(w http.ResponseWriter, r *http.Request) {
 	if task.Error == nil {
 		task.Error = &protocol.TaskError{Code: "cancelled", Message: "cancelled by user"}
 	}
-	if err := g.deps.Store.UpdateTask(task); err != nil {
+	if err := g.deps.Store.UpdateTask(r.Context(), task); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to cancel task")
 		return
 	}
@@ -573,13 +573,13 @@ func (g *Gateway) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 		token.ExpiresAt = &exp
 	}
 
-	if err := g.deps.Store.AddWorkerToken(token); err != nil {
+	if err := g.deps.Store.AddWorkerToken(r.Context(), token); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create token")
 		return
 	}
 
 	reqID := w.Header().Get("X-Request-ID")
-	_ = g.deps.Store.AppendAudit(&protocol.AuditEntry{
+	_ = g.deps.Store.AppendAudit(r.Context(), &protocol.AuditEntry{
 		ID:        protocol.GenerateID("audit"),
 		Timestamp: time.Now(),
 		OrgID:     orgID,
@@ -605,7 +605,7 @@ func (g *Gateway) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 func (g *Gateway) handleListTokens(w http.ResponseWriter, r *http.Request) {
 	orgID := r.PathValue("orgID")
 	limit, offset := getPagination(r)
-	tokens := g.deps.Store.ListWorkerTokensByOrg(orgID)
+	tokens := g.deps.Store.ListWorkerTokensByOrg(r.Context(), orgID)
 	writeJSON(w, http.StatusOK, paginate(tokens, limit, offset))
 }
 
@@ -615,7 +615,7 @@ func (g *Gateway) handleRevokeToken(w http.ResponseWriter, r *http.Request) {
 	orgID := r.PathValue("orgID")
 	tokenID := r.PathValue("tokenID")
 
-	token, err := g.deps.Store.GetWorkerToken(tokenID)
+	token, err := g.deps.Store.GetWorkerToken(r.Context(), tokenID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "token not found")
 		return
@@ -629,13 +629,13 @@ func (g *Gateway) handleRevokeToken(w http.ResponseWriter, r *http.Request) {
 
 	now := time.Now()
 	token.RevokedAt = &now
-	if err := g.deps.Store.UpdateWorkerToken(token); err != nil {
+	if err := g.deps.Store.UpdateWorkerToken(r.Context(), token); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to revoke token")
 		return
 	}
 
 	reqID := w.Header().Get("X-Request-ID")
-	_ = g.deps.Store.AppendAudit(&protocol.AuditEntry{
+	_ = g.deps.Store.AppendAudit(r.Context(), &protocol.AuditEntry{
 		ID:        protocol.GenerateID("audit"),
 		Timestamp: time.Now(),
 		OrgID:     orgID,
@@ -695,11 +695,11 @@ func (g *Gateway) handleQueryAudit(w http.ResponseWriter, r *http.Request) {
 	countFilter := filter
 	countFilter.Limit = 0
 	countFilter.Offset = 0
-	allEntries := g.deps.Store.QueryAudit(countFilter)
+	allEntries := g.deps.Store.QueryAudit(r.Context(), countFilter)
 	total := len(allEntries)
 
 	// Get paginated page
-	entries := g.deps.Store.QueryAudit(filter)
+	entries := g.deps.Store.QueryAudit(r.Context(), filter)
 	if entries == nil {
 		entries = []*protocol.AuditEntry{}
 	}
@@ -765,7 +765,7 @@ func (g *Gateway) handleStreamTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := g.deps.Store.AddTask(task); err != nil {
+	if err := g.deps.Store.AddTask(r.Context(), task); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create task")
 		return
 	}
@@ -845,7 +845,7 @@ func (g *Gateway) handleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
 	webhookID := r.PathValue("webhookID")
 
 	// Verify org ownership before deleting
-	hook, err := g.deps.Store.GetWebhook(webhookID)
+	hook, err := g.deps.Store.GetWebhook(r.Context(), webhookID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "webhook not found")
 		return
@@ -874,7 +874,7 @@ func (g *Gateway) handleListWebhookDeliveries(w http.ResponseWriter, r *http.Req
 // GET /api/v1/tasks/{id}/stream
 func (g *Gateway) handleResubscribeStream(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	task, err := g.deps.Store.GetTask(id)
+	task, err := g.deps.Store.GetTask(r.Context(), id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "task not found")
 		return
@@ -929,7 +929,7 @@ func (g *Gateway) handleCreateRoleBinding(w http.ResponseWriter, r *http.Request
 		return
 	}
 	// Check if binding already exists
-	if existing, err := g.deps.Store.FindRoleBinding(orgID, req.Subject); err == nil {
+	if existing, err := g.deps.Store.FindRoleBinding(r.Context(), orgID, req.Subject); err == nil {
 		writeJSON(w, http.StatusConflict, existing)
 		return
 	}
@@ -940,7 +940,7 @@ func (g *Gateway) handleCreateRoleBinding(w http.ResponseWriter, r *http.Request
 		Role:      req.Role,
 		CreatedAt: time.Now(),
 	}
-	if err := g.deps.Store.AddRoleBinding(rb); err != nil {
+	if err := g.deps.Store.AddRoleBinding(r.Context(), rb); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create role binding")
 		return
 	}
@@ -951,19 +951,19 @@ func (g *Gateway) handleCreateRoleBinding(w http.ResponseWriter, r *http.Request
 func (g *Gateway) handleListRoleBindings(w http.ResponseWriter, r *http.Request) {
 	orgID := r.PathValue("orgID")
 	limit, offset := getPagination(r)
-	writeJSON(w, http.StatusOK, paginate(g.deps.Store.ListRoleBindingsByOrg(orgID), limit, offset))
+	writeJSON(w, http.StatusOK, paginate(g.deps.Store.ListRoleBindingsByOrg(r.Context(), orgID), limit, offset))
 }
 
 // DELETE /api/v1/orgs/{orgID}/roles/{roleID}
 func (g *Gateway) handleDeleteRoleBinding(w http.ResponseWriter, r *http.Request) {
 	orgID := r.PathValue("orgID")
 	roleID := r.PathValue("roleID")
-	rb, err := g.deps.Store.GetRoleBinding(roleID)
+	rb, err := g.deps.Store.GetRoleBinding(r.Context(), roleID)
 	if err != nil || rb.OrgID != orgID {
 		writeError(w, http.StatusNotFound, "role binding not found")
 		return
 	}
-	if err := g.deps.Store.RemoveRoleBinding(roleID); err != nil {
+	if err := g.deps.Store.RemoveRoleBinding(r.Context(), roleID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete role binding")
 		return
 	}
@@ -996,7 +996,7 @@ func (g *Gateway) handleCreatePolicy(w http.ResponseWriter, r *http.Request) {
 		Enabled:   req.Enabled,
 		CreatedAt: time.Now(),
 	}
-	if err := g.deps.Store.AddPolicy(p); err != nil {
+	if err := g.deps.Store.AddPolicy(r.Context(), p); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create policy")
 		return
 	}
@@ -1007,14 +1007,14 @@ func (g *Gateway) handleCreatePolicy(w http.ResponseWriter, r *http.Request) {
 func (g *Gateway) handleListPolicies(w http.ResponseWriter, r *http.Request) {
 	orgID := r.PathValue("orgID")
 	limit, offset := getPagination(r)
-	writeJSON(w, http.StatusOK, paginate(g.deps.Store.ListPoliciesByOrg(orgID), limit, offset))
+	writeJSON(w, http.StatusOK, paginate(g.deps.Store.ListPoliciesByOrg(r.Context(), orgID), limit, offset))
 }
 
 // GET /api/v1/orgs/{orgID}/policies/{policyID}
 func (g *Gateway) handleGetPolicy(w http.ResponseWriter, r *http.Request) {
 	orgID := r.PathValue("orgID")
 	policyID := r.PathValue("policyID")
-	p, err := g.deps.Store.GetPolicy(policyID)
+	p, err := g.deps.Store.GetPolicy(r.Context(), policyID)
 	if err != nil || p.OrgID != orgID {
 		writeError(w, http.StatusNotFound, "policy not found")
 		return
@@ -1026,7 +1026,7 @@ func (g *Gateway) handleGetPolicy(w http.ResponseWriter, r *http.Request) {
 func (g *Gateway) handleUpdatePolicy(w http.ResponseWriter, r *http.Request) {
 	orgID := r.PathValue("orgID")
 	policyID := r.PathValue("policyID")
-	existing, err := g.deps.Store.GetPolicy(policyID)
+	existing, err := g.deps.Store.GetPolicy(r.Context(), policyID)
 	if err != nil || existing.OrgID != orgID {
 		writeError(w, http.StatusNotFound, "policy not found")
 		return
@@ -1049,7 +1049,7 @@ func (g *Gateway) handleUpdatePolicy(w http.ResponseWriter, r *http.Request) {
 	if req.Enabled != nil {
 		existing.Enabled = *req.Enabled
 	}
-	if err := g.deps.Store.UpdatePolicy(existing); err != nil {
+	if err := g.deps.Store.UpdatePolicy(r.Context(), existing); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update policy")
 		return
 	}
@@ -1060,12 +1060,12 @@ func (g *Gateway) handleUpdatePolicy(w http.ResponseWriter, r *http.Request) {
 func (g *Gateway) handleDeletePolicy(w http.ResponseWriter, r *http.Request) {
 	orgID := r.PathValue("orgID")
 	policyID := r.PathValue("policyID")
-	p, err := g.deps.Store.GetPolicy(policyID)
+	p, err := g.deps.Store.GetPolicy(r.Context(), policyID)
 	if err != nil || p.OrgID != orgID {
 		writeError(w, http.StatusNotFound, "policy not found")
 		return
 	}
-	if err := g.deps.Store.RemovePolicy(policyID); err != nil {
+	if err := g.deps.Store.RemovePolicy(r.Context(), policyID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete policy")
 		return
 	}
@@ -1074,6 +1074,6 @@ func (g *Gateway) handleDeletePolicy(w http.ResponseWriter, r *http.Request) {
 
 func (g *Gateway) handleListDLQ(w http.ResponseWriter, r *http.Request) {
 	limit, offset := getPagination(r)
-	all := g.deps.Store.ListDLQ()
+	all := g.deps.Store.ListDLQ(r.Context())
 	writeJSON(w, http.StatusOK, paginate(all, limit, offset))
 }

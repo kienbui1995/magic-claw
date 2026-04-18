@@ -51,7 +51,7 @@ func newDispatcherStack(b *testing.B) (*dispatcher.Dispatcher, *protocol.Worker,
 		Endpoint: protocol.Endpoint{Type: "http", URL: srv.URL},
 		Status:   "online",
 	}
-	if err := s.AddWorker(worker); err != nil {
+	if err := s.AddWorker(context.Background(), worker); err != nil {
 		b.Fatalf("AddWorker: %v", err)
 	}
 
@@ -62,7 +62,7 @@ func newDispatcherStack(b *testing.B) (*dispatcher.Dispatcher, *protocol.Worker,
 		Input:     []byte(`{}`),
 		CreatedAt: time.Now(),
 	}
-	if err := s.AddTask(task); err != nil {
+	if err := s.AddTask(context.Background(), task); err != nil {
 		b.Fatalf("AddTask: %v", err)
 	}
 
@@ -127,7 +127,7 @@ func BenchmarkStore_MemoryAddTask(b *testing.B) {
 			Status:    protocol.TaskPending,
 			CreatedAt: time.Now(),
 		}
-		if err := s.AddTask(t); err != nil {
+		if err := s.AddTask(context.Background(), t); err != nil {
 			b.Fatalf("AddTask: %v", err)
 		}
 	}

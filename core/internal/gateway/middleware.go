@@ -84,8 +84,9 @@ func extractBearerToken(r *http.Request) string {
 func workerAuthMiddleware(s store.Store) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
 			// Dev mode: no tokens configured, allow all
-			if !s.HasAnyWorkerTokens() {
+			if !s.HasAnyWorkerTokens(ctx) {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -97,7 +98,7 @@ func workerAuthMiddleware(s store.Store) func(http.Handler) http.Handler {
 
 			raw := extractBearerToken(r)
 			if raw == "" {
-				s.AppendAudit(&protocol.AuditEntry{ //nolint:errcheck
+				s.AppendAudit(ctx, &protocol.AuditEntry{ //nolint:errcheck
 					ID:        protocol.GenerateID("audit"),
 					Action:    "auth.rejected",
 					Resource:  r.URL.Path,
@@ -110,9 +111,9 @@ func workerAuthMiddleware(s store.Store) func(http.Handler) http.Handler {
 			}
 
 			hash := protocol.HashToken(raw)
-			token, err := s.GetWorkerTokenByHash(hash)
+			token, err := s.GetWorkerTokenByHash(ctx, hash)
 			if err != nil || !token.IsValid() {
-				s.AppendAudit(&protocol.AuditEntry{ //nolint:errcheck
+				s.AppendAudit(ctx, &protocol.AuditEntry{ //nolint:errcheck
 					ID:        protocol.GenerateID("audit"),
 					Action:    "auth.rejected",
 					Resource:  r.URL.Path,
@@ -124,7 +125,7 @@ func workerAuthMiddleware(s store.Store) func(http.Handler) http.Handler {
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), ctxKeyWorkerToken, token)
+			ctx = context.WithValue(r.Context(), ctxKeyWorkerToken, token)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

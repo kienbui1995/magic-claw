@@ -1,6 +1,7 @@
 package rbac_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -24,7 +25,7 @@ func TestEnforcer_DevMode_NoBindings(t *testing.T) {
 
 func TestEnforcer_Owner(t *testing.T) {
 	e, s := setup(t)
-	s.AddRoleBinding(&protocol.RoleBinding{
+	s.AddRoleBinding(context.Background(), &protocol.RoleBinding{
 		ID: "rb1", OrgID: "org1", Subject: "user_alice", Role: protocol.RoleOwner, CreatedAt: time.Now(),
 	})
 
@@ -37,7 +38,7 @@ func TestEnforcer_Owner(t *testing.T) {
 
 func TestEnforcer_Admin(t *testing.T) {
 	e, s := setup(t)
-	s.AddRoleBinding(&protocol.RoleBinding{
+	s.AddRoleBinding(context.Background(), &protocol.RoleBinding{
 		ID: "rb1", OrgID: "org1", Subject: "user_bob", Role: protocol.RoleAdmin, CreatedAt: time.Now(),
 	})
 
@@ -51,7 +52,7 @@ func TestEnforcer_Admin(t *testing.T) {
 
 func TestEnforcer_Viewer(t *testing.T) {
 	e, s := setup(t)
-	s.AddRoleBinding(&protocol.RoleBinding{
+	s.AddRoleBinding(context.Background(), &protocol.RoleBinding{
 		ID: "rb1", OrgID: "org1", Subject: "user_carol", Role: protocol.RoleViewer, CreatedAt: time.Now(),
 	})
 
@@ -66,7 +67,7 @@ func TestEnforcer_Viewer(t *testing.T) {
 func TestEnforcer_UnknownSubject(t *testing.T) {
 	e, s := setup(t)
 	// Add a binding so org is not in dev mode
-	s.AddRoleBinding(&protocol.RoleBinding{
+	s.AddRoleBinding(context.Background(), &protocol.RoleBinding{
 		ID: "rb1", OrgID: "org1", Subject: "user_alice", Role: protocol.RoleOwner, CreatedAt: time.Now(),
 	})
 
@@ -77,7 +78,7 @@ func TestEnforcer_UnknownSubject(t *testing.T) {
 
 func TestEnforcer_RoleFor(t *testing.T) {
 	e, s := setup(t)
-	s.AddRoleBinding(&protocol.RoleBinding{
+	s.AddRoleBinding(context.Background(), &protocol.RoleBinding{
 		ID: "rb1", OrgID: "org1", Subject: "user_alice", Role: protocol.RoleOwner, CreatedAt: time.Now(),
 	})
 

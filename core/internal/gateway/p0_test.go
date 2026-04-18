@@ -1,6 +1,7 @@
 package gateway_test
 
 import (
+	"context"
 	"bytes"
 	"encoding/json"
 	"net/http"
@@ -154,7 +155,7 @@ func TestCancelTask_Success(t *testing.T) {
 	// Seed a pending task directly into the store — avoids the 503 from
 	// handleSubmitTask when no workers are available.
 	taskID := protocol.GenerateID("task")
-	if err := s.AddTask(&protocol.Task{
+	if err := s.AddTask(context.Background(), &protocol.Task{
 		ID:        taskID,
 		Type:      "nop",
 		Priority:  protocol.PriorityNormal,
