@@ -10,6 +10,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"golang.org/x/time/rate"
 
 	"github.com/kienbui1995/magic/core/internal/auth"
@@ -211,6 +212,13 @@ func (g *Gateway) Handler() http.Handler {
 	handler = apiVersionMiddleware(handler)
 	handler = securityHeadersMiddleware(handler)
 	handler = corsMiddleware(handler)
+	// OpenTelemetry HTTP instrumentation — outermost wrapper so every
+	// request gets a span and W3C trace context is extracted into ctx.
+	handler = otelhttp.NewHandler(handler, "magic.http",
+		otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string {
+			return r.Method + " " + r.URL.Path
+		}),
+	)
 
 	return handler
 }

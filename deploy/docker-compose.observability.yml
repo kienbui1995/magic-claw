@@ -5,7 +5,9 @@
 #   3000  Grafana (admin / ${GRAFANA_ADMIN_PASSWORD:-admin})
 #   9090  Prometheus
 #   9093  Alertmanager (optional — uncomment)
-#   16686 Jaeger UI (optional — uncomment when OTel tracing is enabled)
+#   16686 Jaeger UI — OTLP traces from MagiC (OTEL_EXPORTER_OTLP_ENDPOINT)
+#   4317  Jaeger OTLP gRPC
+#   4318  Jaeger OTLP HTTP
 #   8080  MagiC Gateway / Prometheus /metrics
 #   5432  PostgreSQL
 
@@ -40,6 +42,9 @@ services:
       MAGIC_POSTGRES_POOL_MIN: "2"
       MAGIC_POSTGRES_POOL_MAX: "10"
       MAGIC_API_KEY: ${MAGIC_API_KEY:-dev-key-change-me}
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://jaeger:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+      OTEL_SERVICE_NAME: "magic"
     ports:
       - "8080:8080"
     healthcheck:
@@ -122,20 +127,25 @@ services:
   #     - magic-obs
 
   # ---------------------------------------------------------------------------
-  # Optional: Jaeger (all-in-one) — forward-looking, enable once OTel tracing
-  # is instrumented in MagiC core. OTLP endpoint: :4317/4318.
+  # Jaeger (all-in-one) — OTLP trace collector + UI. MagiC exports spans here
+  # via OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318.
   # ---------------------------------------------------------------------------
-  # jaeger:
-  #   image: jaegertracing/all-in-one:1.57
-  #   restart: unless-stopped
-  #   environment:
-  #     COLLECTOR_OTLP_ENABLED: "true"
-  #   ports:
-  #     - "16686:16686"    # UI
-  #     - "4317:4317"      # OTLP gRPC
-  #     - "4318:4318"      # OTLP HTTP
-  #   networks:
-  #     - magic-obs
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"    # UI
+      - "4317:4317"      # OTLP gRPC
+      - "4318:4318"      # OTLP HTTP
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:14269/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - magic-obs
 
 volumes:
   postgres-data:

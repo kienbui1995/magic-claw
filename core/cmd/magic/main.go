@@ -37,6 +37,7 @@ import (
 	"github.com/kienbui1995/magic/core/internal/store"
 	"github.com/kienbui1995/magic/core/internal/policy"
 	"github.com/kienbui1995/magic/core/internal/rbac"
+	"github.com/kienbui1995/magic/core/internal/tracing"
 	"github.com/kienbui1995/magic/core/internal/webhook"
 )
 
@@ -156,6 +157,25 @@ func runServer() {
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	// OpenTelemetry tracing — controlled by OTEL_EXPORTER_OTLP_ENDPOINT
+	// (no-op when unset, so zero overhead for dev).
+	tracingShutdown, err := tracing.Setup(context.Background())
+	if err != nil {
+		log.Fatalf("[tracing] init failed: %v", err)
+	}
+	defer func() {
+		sCtx, sCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer sCancel()
+		if err := tracingShutdown(sCtx); err != nil {
+			log.Printf("[tracing] shutdown: %v", err)
+		}
+	}()
+	if ep := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"); ep != "" {
+		log.Printf("[tracing] OTLP exporter: %s", ep)
+	} else {
+		log.Printf("[tracing] disabled (set OTEL_EXPORTER_OTLP_ENDPOINT to enable)")
 	}
 
 	// Secret provider — abstraction layer; not yet used by handlers.
