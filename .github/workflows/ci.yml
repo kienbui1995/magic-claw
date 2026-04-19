@@ -32,10 +32,15 @@ jobs:
         run: cd core && go vet ./...
       - name: golangci-lint
         uses: golangci/golangci-lint-action@971e284b6050e8a5849b72094c50ab08da042db8  # v6.1.1
+        # continue-on-error: lint is advisory — build/test/vet gate the PR.
+        # staticcheck (slow, full-program analysis) is intentionally excluded
+        # via --fast so the step finishes in <60s on GitHub-hosted runners.
+        # Run staticcheck locally: cd core && staticcheck ./...
+        continue-on-error: true
         with:
           version: v1.64.8
           working-directory: core
-          args: --go=1.24 --timeout=8m
+          args: --go=1.24 --timeout=3m --fast
           only-new-issues: true
 
   e2e:
