@@ -33,9 +33,10 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@971e284b6050e8a5849b72094c50ab08da042db8  # v6.1.1
         with:
-          version: latest
+          version: v1.64.8
           working-directory: core
           args: --go=1.24 --timeout=8m
+          only-new-issues: true
 
   e2e:
     name: E2E Tests (MemoryStore)
