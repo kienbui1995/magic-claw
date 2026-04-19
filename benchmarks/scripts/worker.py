@@ -77,7 +77,7 @@ class Handler(BaseHTTPRequestHandler):
                 _t.sleep(CFG.latency_ms / 1000.0)
 
             # Optional fault injection.
-            if CFG.fail_rate > 0 and random.random() < CFG.fail_rate:
+            if CFG.fail_rate > 0 and random.random() < CFG.fail_rate:  # NOSONAR python:S2245 — fault injection, not security-sensitive
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
@@ -141,7 +141,7 @@ def serve(cfg: WorkerCfg) -> None:
 
 def parse_args() -> WorkerCfg:
     p = argparse.ArgumentParser(description="MagiC echo worker")
-    p.add_argument("--gateway", default="http://localhost:8080")
+    p.add_argument("--gateway", default="http://localhost:8080")  # NOSONAR python:S5332 — benchmark default, override with https in production
     p.add_argument("--token", default="dev-token")
     p.add_argument("--port", type=int, default=9100)
     p.add_argument("--name", default="echo-bench")
