@@ -63,12 +63,12 @@ return allowed
 // is allowed through (a warning is logged, rate-limited to one line per
 // ~5s to avoid log floods).
 type redisLimiter struct {
-	client   *redis.Client
-	name     string // bucket namespace, e.g. "register"
-	rate     rate.Limit
-	burst    int
-	ttl      time.Duration
-	scriptSH string // SHA of tokenBucketLua, populated lazily
+	client *redis.Client
+	name   string // bucket namespace, e.g. "register"
+	rate   rate.Limit
+	burst  int
+	ttl    time.Duration
+	script *redis.Script // initialized once in constructor, thread-safe
 
 	// lastWarnUnix is the unix seconds of the last "redis error, failing open"
 	// log line. Used to rate-limit warnings when Redis is down.
@@ -98,6 +98,7 @@ func NewRedisLimiter(client *redis.Client, name string, r rate.Limit, burst int,
 		rate:   r,
 		burst:  burst,
 		ttl:    ttl,
+		script: redis.NewScript(tokenBucketLua),
 	}
 }
 
@@ -112,28 +113,7 @@ func (rl *redisLimiter) Allow(ctx context.Context, key string) bool {
 	}
 	args := []interface{}{rateStr, rl.burst, now, ttlSec}
 
-	// Try EVALSHA (cached) first, fall back to EVAL on NOSCRIPT.
-	var res interface{}
-	var err error
-	if sha := rl.scriptSH; sha != "" {
-		res, err = rl.client.EvalSha(ctx, sha, []string{fullKey}, args...).Result()
-		if err != nil && isNoScript(err) {
-			err = nil
-			res = nil
-		}
-	}
-	if res == nil {
-		var evalErr error
-		res, evalErr = rl.client.Eval(ctx, tokenBucketLua, []string{fullKey}, args...).Result()
-		if evalErr == nil {
-			// Cache SHA for subsequent EVALSHA calls.
-			if sha, loadErr := rl.client.ScriptLoad(ctx, tokenBucketLua).Result(); loadErr == nil {
-				rl.scriptSH = sha
-			}
-		}
-		err = evalErr
-	}
-
+	res, err := rl.script.Run(ctx, rl.client, []string{fullKey}, args...).Result()
 	if err != nil {
 		rl.warnFailOpen(err)
 		return true
@@ -158,11 +138,3 @@ func (rl *redisLimiter) warnFailOpen(err error) {
 	}
 }
 
-// isNoScript reports whether err is the Redis NOSCRIPT error (script not cached).
-func isNoScript(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := err.Error()
-	return len(msg) >= 8 && msg[:8] == "NOSCRIPT"
-}

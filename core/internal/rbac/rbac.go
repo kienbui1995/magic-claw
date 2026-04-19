@@ -34,9 +34,7 @@ func New(s store.Store) *Enforcer {
 
 // Check returns true if the subject has permission to perform the action in the org.
 // Returns true if no role bindings exist for the org (dev mode / open access).
-func (e *Enforcer) Check(orgID, subject, action string) bool {
-	// TODO(ctx): propagate from caller (gateway middleware) once RBAC API takes ctx.
-	ctx := context.TODO()
+func (e *Enforcer) Check(ctx context.Context, orgID, subject, action string) bool {
 	bindings := e.store.ListRoleBindingsByOrg(ctx, orgID)
 	if len(bindings) == 0 {
 		return true // no RBAC configured → allow all (dev mode)
@@ -55,9 +53,8 @@ func (e *Enforcer) Check(orgID, subject, action string) bool {
 }
 
 // RoleFor returns the role for a subject in an org, or empty string if not found.
-func (e *Enforcer) RoleFor(orgID, subject string) string {
-	// TODO(ctx): propagate from caller once RBAC API takes ctx.
-	rb, err := e.store.FindRoleBinding(context.TODO(), orgID, subject)
+func (e *Enforcer) RoleFor(ctx context.Context, orgID, subject string) string {
+	rb, err := e.store.FindRoleBinding(ctx, orgID, subject)
 	if err != nil {
 		return ""
 	}

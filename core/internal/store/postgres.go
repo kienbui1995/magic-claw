@@ -252,10 +252,21 @@ func (s *PostgreSQLStore) GetTask(ctx context.Context, id string) (*protocol.Tas
 }
 
 func (s *PostgreSQLStore) UpdateTask(ctx context.Context, t *protocol.Task) error {
-	if _, err := s.GetTask(ctx, t.ID); err != nil {
+	data, err := json.Marshal(t)
+	if err != nil {
 		return err
 	}
-	return pgPut(ctx, s.pool, "tasks", t.ID, t)
+	res, err := s.pool.Exec(ctx,
+		`UPDATE tasks SET data = $2::jsonb WHERE id = $1`,
+		t.ID, data,
+	)
+	if err != nil {
+		return err
+	}
+	if res.RowsAffected() == 0 {
+		return fmt.Errorf("task %s not found", t.ID)
+	}
+	return nil
 }
 
 func (s *PostgreSQLStore) ListTasks(ctx context.Context) []*protocol.Task {

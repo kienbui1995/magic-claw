@@ -296,7 +296,7 @@ func rbacMiddleware(enforcer *rbac.Enforcer) func(http.Handler) http.Handler {
 					writeError(w, http.StatusForbidden, "insufficient permissions")
 					return
 				}
-			} else if !enforcer.Check(orgID, subject, action) {
+			} else if !enforcer.Check(r.Context(), orgID, subject, action) {
 				writeError(w, http.StatusForbidden, "insufficient permissions")
 				return
 			}

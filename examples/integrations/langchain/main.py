@@ -42,7 +42,7 @@ def calculator(expression: str) -> str:
     if not set(expression) <= allowed:
         return "error: unsupported characters"
     try:
-        return str(eval(expression, {"__builtins__": {}}, {}))  # noqa: S307
+        return str(eval(expression, {"__builtins__": {}}, {}))  # noqa: S307  # nosec G307
     except Exception as e:
         return f"error: {e}"
 
