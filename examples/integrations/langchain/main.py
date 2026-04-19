@@ -15,7 +15,9 @@ Usage::
 
 from __future__ import annotations
 
+import ast
 import logging
+import operator
 import os
 
 from dotenv import load_dotenv
@@ -34,15 +36,43 @@ WORKER_PORT = int(os.getenv("WORKER_PORT", "9102"))
 LLM_MODEL = os.getenv("LANGCHAIN_LLM_MODEL", "gpt-4o-mini")
 
 
+# ── Safe arithmetic evaluator (no eval/exec) ───────────────────────────────
+_ARITH_OPS: dict = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.Mod: operator.mod,
+    ast.Pow: operator.pow,
+    ast.USub: operator.neg,
+    ast.UAdd: operator.pos,
+}
+
+
+def _safe_arith(node: ast.AST) -> float:
+    """Recursively evaluate an AST node using only arithmetic operators.
+
+    Raises ValueError for any unsupported construct (attribute access, calls,
+    names, etc.) so user-controlled input cannot execute arbitrary code.
+    """
+    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+        return float(node.value)
+    if isinstance(node, ast.BinOp) and type(node.op) in _ARITH_OPS:
+        return _ARITH_OPS[type(node.op)](_safe_arith(node.left), _safe_arith(node.right))
+    if isinstance(node, ast.UnaryOp) and type(node.op) in _ARITH_OPS:
+        return _ARITH_OPS[type(node.op)](_safe_arith(node.operand))
+    raise ValueError(f"unsupported expression node: {type(node).__name__}")
+
+
 # ── Tools ──────────────────────────────────────────────────────────────────
 @tool
 def calculator(expression: str) -> str:
-    """Evaluate a basic arithmetic expression. Supports + - * / ( ) and floats."""
-    allowed = set("0123456789+-*/(). ")
-    if not set(expression) <= allowed:
-        return "error: unsupported characters"
+    """Evaluate a basic arithmetic expression. Supports + - * / % ** ( ) and floats."""
     try:
-        return str(eval(expression, {"__builtins__": {}}, {}))  # noqa: S307  # nosec G307
+        tree = ast.parse(expression, mode="eval")
+        result = _safe_arith(tree.body)
+        # Format: drop trailing .0 for whole numbers for readability
+        return str(int(result) if result == int(result) else result)
     except Exception as e:
         return f"error: {e}"
 
