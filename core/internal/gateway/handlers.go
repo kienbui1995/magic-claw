@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -268,14 +269,6 @@ func (g *Gateway) handleGetTask(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, task)
 }
 
-// handleCancelTask marks a task as cancelled if it is not already in a terminal state.
-// Returns 404 if the task does not exist, 409 if already terminal.
-//
-// Note: if the task is currently being dispatched, the worker will not be
-// actively stopped — the dispatcher will complete its HTTP roundtrip, but the
-// final UpdateTask call from the dispatcher may overwrite the cancelled status
-// if it races. Hard cancellation of in-flight work requires worker cooperation
-// and is out of scope for this endpoint.
 // callerOrgID extracts the authenticated org ID from the request context.
 // It mirrors the priority order used by rbacMiddleware and rlsScopeMiddleware:
 // OIDC claims first, then worker token.  Returns "" in dev/anonymous mode.
@@ -289,30 +282,41 @@ func callerOrgID(r *http.Request) string {
 	return ""
 }
 
+// handleCancelTask atomically transitions a task to the cancelled state.
+// Returns 404 if the task does not exist, 409 if already terminal.
+//
+// Ownership is verified via a pre-flight GetTask (OrgID never changes after
+// creation so the read is safe). The status transition itself is handled by
+// Store.CancelTask in a single atomic operation, preventing the TOCTOU race
+// where a concurrent dispatcher completion could overwrite the cancelled status.
+// Hard cancellation of in-flight work requires worker cooperation and is out
+// of scope for this endpoint.
 func (g *Gateway) handleCancelTask(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	task, err := g.deps.Store.GetTask(r.Context(), id)
+
+	// Pre-flight: load task for ownership check. OrgID is immutable after
+	// creation so this read is not subject to the status TOCTOU race.
+	existing, err := g.deps.Store.GetTask(r.Context(), id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "task not found")
 		return
 	}
-	// Ownership check: verify caller belongs to the same org as the task.
-	if callerOrg := callerOrgID(r); callerOrg != "" && task.Context.OrgID != "" && callerOrg != task.Context.OrgID {
+	if callerOrg := callerOrgID(r); callerOrg != "" && existing.Context.OrgID != "" && callerOrg != existing.Context.OrgID {
 		writeError(w, http.StatusForbidden, "access denied")
 		return
 	}
-	if protocol.IsTaskTerminal(task.Status) {
-		writeError(w, http.StatusConflict, "task already in terminal state: "+task.Status)
-		return
-	}
-	task.Status = protocol.TaskCancelled
-	now := time.Now()
-	task.CompletedAt = &now
-	if task.Error == nil {
-		task.Error = &protocol.TaskError{Code: "cancelled", Message: "cancelled by user"}
-	}
-	if err := g.deps.Store.UpdateTask(r.Context(), task); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to cancel task")
+
+	// Atomic status transition — no TOCTOU window between check and update.
+	task, err := g.deps.Store.CancelTask(r.Context(), id)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			writeError(w, http.StatusNotFound, "task not found")
+		case errors.Is(err, store.ErrTaskTerminal):
+			writeError(w, http.StatusConflict, "task already in terminal state")
+		default:
+			writeError(w, http.StatusInternalServerError, "failed to cancel task")
+		}
 		return
 	}
 	g.deps.Bus.Publish(events.Event{
