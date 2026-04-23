@@ -56,6 +56,7 @@ jobs:
   e2e:
     name: E2E Tests (MemoryStore)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:
@@ -74,6 +75,7 @@ jobs:
   e2e-postgres:
     name: E2E Tests (Postgres via testcontainers)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:

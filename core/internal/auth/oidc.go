@@ -73,9 +73,12 @@ func NewOIDCVerifier(ctx context.Context, issuer, clientID, audience string) (*O
 		ClientID:        aud,
 		SkipClientIDCheck: false,
 		// 60s clock skew tolerance — spec-recommended for distributed systems.
-		// Advancing Now by 60s makes tokens appear valid 60s past their exp
-		// claim, compensating for clock skew between the IdP and this server.
-		Now: func() time.Time { return time.Now().Add(60 * time.Second) },
+		// go-oidc uses Now() as the reference time for expiry checks. Subtracting
+		// 60s simulates the server's clock being 60s behind the IdP, so tokens
+		// that expired up to 60s ago are still accepted — the correct direction
+		// for clock skew compensation. Adding 60s would do the opposite (reject
+		// tokens 60s early), which is wrong.
+		Now: func() time.Time { return time.Now().Add(-60 * time.Second) },
 	}
 	return &OIDCVerifier{
 		verifier: provider.Verifier(cfg),
